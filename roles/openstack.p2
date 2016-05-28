@@ -1,0 +1,193 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+var utils = new (require('/opt/partout/agent/lib/utils'))(),
+    u = require('util');
+
+p2
+
+.role('openstack_prepare_virt_host', {
+  p2: function (title, opts) {
+    p2
+    .node(function (f) {
+      return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_virt_host');
+    })
+    .package('qemu-kvm')
+    .package('libvirt-bin')
+    .package('virtinst')
+    .package('uvtool')
+    .package('uvtool-libvirt')
+    ;
+
+  }
+})
+
+/*
+ * .uvt_image('release', {arch:'amd64', ensure: 'present|absent'})
+ */
+.role('uvt_cloud_image', {
+  facts: function (deferred, facts_so_far, title, opts) {
+
+    if (facts_so_far.platform === 'linux') {
+
+      // is uvt-simplestreams-libvirt command available?
+      utils.runCmd('uvt-simplestreams-libvirt query')
+      .done(function (u_a) {
+        var rc = u_a[0],
+            stdout = u_a[1],
+            stderr = u_a[2];
+
+        if (rc !== 0) {
+          deferred.resolve();
+          return;
+        }
+
+        var facts = {
+          p2role: {
+            uvt_cloud_image: {
+              loaded: true
+            }
+          },
+          uvt_cloud_image: {}
+        };
+
+        var lines = stdout.trim().split(/\r?\n/),
+            uvtQRe = /release=(\S*) arch=(\S*) label=(.*)$/;
+
+        lines.forEach(function (line) {
+          var m = line.match(uvtQRe);
+          if (m) {
+            var release = m[1],
+                arch = m[2],
+                label = m[3];
+
+            facts.uvt_cloud_image[u.format('%s:%s', release, arch)] = {
+              release: release,
+              arch: arch,
+              label: label
+            };
+          }
+        });
+
+        deferred.resolve(facts);
+
+      });
+
+    }
+
+  },
+
+  p2: function (title, opts) {
+
+    opts.release = (opts.release ? opts.release : title);
+
+    if (!opts.release) {
+      console.error('uvt_cloud_image: release option is mandatory');
+      return;
+    }
+
+    opts.arch = (opts.arch ? (opts.arch === 'x64' ? 'amd64' : opts.arch) : 'amd64');
+    p2
+
+    .node(function (f) {
+      return f.platform === 'linux' && f.p2role.uvt_cloud_image && f.p2role.uvt_cloud_image.loaded;
+    })
+
+    .command('sync_uvt_image', {
+      cmd: u.format('uvt-simplestreams-libvirt sync release=%s arch=%s', opts.release, opts.arch),
+      onlyif: function (f) {
+        return f.uvt_cloud_image[u.format('%s:%s', opts.release, opts.arch)] === undefined;
+      }
+    });
+
+  }
+})
+
+/*
+ * .uvt_kvm('instance_name', {
+ *    release: 'trusty',
+ *    memory: 512,  // MBs
+ *    disk: 8,      // GBs
+ *    cpu: 1        // num cpus
+ * })
+ */
+.role('uvt_kvm', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    var facts = {
+      p2role: {
+        uvt_kvm: {
+          loaded: true
+        }
+      },
+      uvt_kvm_instance: {}
+    };
+
+    utils.runCmd('uvt-kvm list')
+    .done(function (uk_a) {
+      //console.log('uk_a:', uk_a);
+      var rc = uk_a[0],
+          stdout = uk_a[1],
+          stderr = uk_a[2];
+
+      if (rc !== 0) {
+        deferred.resolve();
+        return;
+      }
+
+      var instances = stdout.trim().split(/\r?\n/);
+
+      instances.forEach(function (i) {
+        i = i.trim();
+        facts.uvt_kvm_instance[i] = true;
+      });
+
+      //console.log('uvt_kvm facts:', facts);
+      deferred.resolve(facts);
+    });
+
+  },
+
+  p2: function (title, opts) {
+
+    opts.ensure = (opts.ensure ? opts.ensure : 'present');
+
+    if (opts.ensure === 'present') {
+      var cmd = u.format('uvt-kvm create %s release=%s', title, opts.release);
+
+      if (opts.memory) {
+        cmd += u.format(' --memory %d', opts.memory);
+      }
+
+      if (opts.disk) {
+        cmd += u.format(' --disk %d', opts.disk);
+      }
+
+      if (opts.cpu) {
+        cmd += u.format(' --cpu %d', opts.cpu);
+      }
+
+      p2
+      .command(cmd, {
+        onlyif: function (f) {
+          //console.log('uvt-kvm :', f.uvt_kvm_instance);
+          return f.uvt_kvm_instance[title] === undefined;
+        }
+      })
+
+      ;
+
+    } else if (opts.ensure === 'absent') {
+      p2
+      .command(u.format('uvt-kvm destroy %s', title), {
+        onlyif: function (f) {
+          return f.uvt_kvm_instance[title] !== undefined;
+        }
+      })
+      ;
+    }
+
+  }
+})
+
+;
