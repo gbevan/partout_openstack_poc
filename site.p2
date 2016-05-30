@@ -2,18 +2,33 @@
 'use strict';
 /*global p2*/
 
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var Q = require('q'),
+    path = require('path'),
+    fs = require('fs');
+
+var sshpubkey = fs.readFileSync('/home/bev/.ssh/authorized_keys');
+
 p2
-.command('echo in openstack zone')
 
 .include('roles/openstack.p2')
-.command('echo after include')
 
 /////////////
 // manager 1
 .node('manager1')
+
 .classify('openstack_virt_host')
 .openstack_prepare_virt_host()
-.command('echo in manager1')
+
+//.bridge('br0')
+//.command('echo "' + __dirname + '"')
+.file('/etc/network/interfaces', {
+  ensure: 'file',
+  content: {template: path.join(__dirname, 'files', 'interfaces_manager1')}
+})
+//.command('/etc/init.d/networking restart')  // TODO: trigger if file above is updated - EVENT MODEL - NEEDS a REBOOT (how to handle that and continue)
 
 .uvt_cloud_image('trusty', {arch:'amd64', ensure: 'present'})
 
@@ -21,25 +36,67 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
+//.uvt_kvm('controller1', {
+//  ensure: 'absent'
+//})
+//.uvt_kvm('network1', {
+//  ensure: 'absent'
+//})
+//.uvt_kvm('cinder1', {
+//  ensure: 'absent'
+//})
+
 .uvt_kvm('controller1', {
+  //password: '******',
   release: 'trusty',
+  bridge: 'br0',
+  ipaddr: '192.168.0.90',
+  netmask: '255.255.255.0',
+  gateway: '192.168.0.1',
+  sshpubkey: sshpubkey,
   memory: 512,  // MBs
   disk: 8,      // GBs
   cpu: 1        // num cpus
 })
 
 .uvt_kvm('network1', {
+  //password: '******',
   release: 'trusty',
+  bridge: 'br0',
+  ipaddr: '192.168.0.91',
+  netmask: '255.255.255.0',
+  gateway: '192.168.0.1',
+  sshpubkey: sshpubkey,
   memory: 512,  // MBs
   disk: 8,      // GBs
   cpu: 1        // num cpus
 })
 
 .uvt_kvm('cinder1', {
+  //password: '******',
   release: 'trusty',
+  bridge: 'br0',
+  ipaddr: '192.168.0.92',
+  netmask: '255.255.255.0',
+  gateway: '192.168.0.1',
+  sshpubkey: sshpubkey,
   memory: 512,  // MBs
   disk: 8,      // GBs
   cpu: 1        // num cpus
 })
+
+/*
+.command('uvt_kvm ssh controller1 --insecure', {
+  onlyif: function (f) {
+    var deferred = Q.defer();
+
+    setTimeout(function () {
+      deferred.resolve(true);
+    }, 5000);
+
+    return deferred.promise;
+  }
+})
+*/
 
 ;

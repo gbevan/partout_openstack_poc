@@ -1,0 +1,7 @@
+#cloud-config
+chpasswd: {expire: false}
+hostname: {{ opts.parms.hostname }}
+manage_etc_hosts: localhost
+password: {{ opts.parms.password }}
+ssh_authorized_keys: [{{{ opts.parms.sshpubkey }}}]
+ssh_pwauth: true

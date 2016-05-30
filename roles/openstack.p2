@@ -2,8 +2,16 @@
 'use strict';
 /*global p2*/
 
-var utils = new (require('/opt/partout/agent/lib/utils'))(),
-    u = require('util');
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var path = require('path'),
+    utils = new (p2.require('utils'))(),
+    pfs = new (p2.require('pfs'))(),
+    u = require('util'),
+    Q = require('q'),
+    heredoc = require('heredoc'),
+    uuid = require('uuid');
 
 p2
 
@@ -106,6 +114,9 @@ p2
 
 /*
  * .uvt_kvm('instance_name', {
+ *    ensure: 'present|absent',
+ *    autostart: true|false,
+ *    state: 'running|stopped',
  *    release: 'trusty',
  *    memory: 512,  // MBs
  *    disk: 8,      // GBs
@@ -114,6 +125,7 @@ p2
  */
 .role('uvt_kvm', {
   facts: function (deferred, facts_so_far, title, opts) {
+    //console.log('uvt_kvm getting facts');
     var facts = {
       p2role: {
         uvt_kvm: {
@@ -139,7 +151,9 @@ p2
 
       instances.forEach(function (i) {
         i = i.trim();
-        facts.uvt_kvm_instance[i] = true;
+        if (i !== '') {
+          facts.uvt_kvm_instance[i] = true;
+        }
       });
 
       //console.log('uvt_kvm facts:', facts);
@@ -151,6 +165,8 @@ p2
   p2: function (title, opts) {
 
     opts.ensure = (opts.ensure ? opts.ensure : 'present');
+    opts.state = (opts.state ? opts.state : 'running');
+    opts.autostart = (opts.autostart !== undefined ? opts.autostart : true);
 
     if (opts.ensure === 'present') {
       var cmd = u.format('uvt-kvm create %s release=%s', title, opts.release);
@@ -167,13 +183,80 @@ p2
         cmd += u.format(' --cpu %d', opts.cpu);
       }
 
+      if (opts.bridge) {
+        cmd += u.format(' --bridge %s', opts.bridge);
+      }
+//
+//      if (opts.password) {
+//        cmd += u.format(' --password \'%s\'', opts.password);
+//      }
+
+      var cloud_user_data_file = u.format('/tmp/%s_user_data', title),
+          cloud_meta_data_file = u.format('/tmp/%s_meta_data', title);
+
+      cmd += u.format(' --user-data %s', cloud_user_data_file);
+      cmd += u.format(' --meta-data %s', cloud_meta_data_file);
+
       p2
+
+      // create user_data file from template
+      .file(cloud_user_data_file, {
+        ensure: 'file',
+        content: {template: path.join(__dirname, '..', 'files', 'cloud_user_data.template')},
+        parms: {
+          hostname: title,
+          password: opts.password,
+          sshpubkey: opts.sshpubkey
+        }
+      })
+
+      // create meta_data file from template
+      .file(cloud_meta_data_file, {
+        ensure: 'file',
+        content: {template: path.join(__dirname, '..', 'files', 'cloud_meta_data.template')},
+        parms: {
+          instance_uuid: uuid.v1(),
+          ipaddr: opts.ipaddr,
+          netmask: opts.netmask,
+          gateway: opts.gateway
+        }
+      })
+
       .command(cmd, {
         onlyif: function (f) {
-          //console.log('uvt-kvm :', f.uvt_kvm_instance);
+          //console.log('uvt-kvm onlyif:', f.uvt_kvm_instance);
           return f.uvt_kvm_instance[title] === undefined;
         }
       })
+
+      // state: running|stopped
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list --inactive | tail -n +3  | sed 's/ -[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh start @
+        */}).trim(),
+        onlyif: function (f) {return opts.state === 'running';}
+      })
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list | tail -n +3  | sed 's/ [0-9]\+[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh shutdown @
+        */}).trim(),
+        onlyif: function (f) {return opts.state === 'stopped';}
+      })
+
+      // autostart: true|false
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list --all --no-autostart | tail -n +3  | sed 's/ [-0-9]\+[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh autostart @
+        */}).trim(),
+        onlyif: function (f) {return opts.autostart;}
+      })
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list --all --autostart | tail -n +3  | sed 's/ [-0-9]\+[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh autostart --disable @
+        */}).trim(),
+        onlyif: function (f) {return opts.state === 'stopped';}
+      })
+
 
       ;
 
@@ -189,5 +272,69 @@ p2
 
   }
 })
+
+/*
+ * .bridge('br0', {
+ *    ipaddress: '192.168.0.80',
+ *    netmask: '255.255.255.0',
+ *    dns_servers: ['...', '...'],
+ *    up_cmd: 'ethtool -s eth0 wol g' // wake on lan
+ *    ports: ['eth0', ...]
+ * })
+.role('bridge', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    var facts = {
+      p2role: {
+        bridge: {
+          loaded: true
+        }
+      },
+      bridge: {}
+    },
+        vnetDir = '/sys/devices/virtual/net';
+
+    // get list of virtual network devices
+    pfs.pReadDir(vnetDir)
+    .done(function (vnics) {
+      var vnics_promises = [];
+      vnics.forEach(function (vnic) {
+        var vnic_deferred = Q.defer();
+        vnics_promises.push(vnic_deferred.promise);
+
+        var vnic_path = path.join(vnetDir, vnic);
+        pfs.pExists(path.join(vnic_path, 'bridge'))
+        .done(function(isaBridge) {
+          if (!isaBridge) {
+            vnic_deferred.resolve();
+            return;
+          }
+          facts.bridge[vnic] = {ports: {}};
+
+          pfs.pReadDir(path.join(vnic_path, 'brif'))
+          .done(function (ports) {
+            ports.forEach(function (port) {
+              facts.bridge[vnic].ports[port] = true;
+            });
+
+            vnic_deferred.resolve();
+          });
+        });
+      });
+
+      Q.all(vnics_promises)
+      .done(function () {
+        console.log('bridge: facts:', facts.bridge);
+        deferred.resolve(facts);
+      });
+    });
+
+  },
+
+  p2: function (title, opts) {
+
+  }
+
+})
+ */
 
 ;
