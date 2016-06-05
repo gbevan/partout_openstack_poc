@@ -1,0 +1,34 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var heredoc = require('heredoc');
+
+p2
+
+.role('openstack_controller', {
+  p2: function (title, opts) {
+    p2
+    .node(function (f) {
+      return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_controller');
+    })
+
+    // TODO: Passing configs for silent installs needs to be supported by package module
+    .command(heredoc(function () {/*
+    echo 'mariadb-server-5.5  mysql-server/root_password  password mypass' | debconf-set-selections;
+    echo 'mariadb-server-5.5  mysql-server/root_password_again  password mypass' | debconf-set-selections
+    */}))
+
+    .package('mariadb-server')
+
+    .package('python-pymysql')
+
+
+    ;
+  }
+})
+
+;

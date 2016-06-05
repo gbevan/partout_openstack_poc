@@ -7,15 +7,18 @@ module.paths = module.paths.concat(module.parent.paths);
 
 var Q = require('q'),
     path = require('path'),
-    fs = require('fs');
+    fs = require('fs'),
+    u = require('util'),
+    heredoc = require('heredoc');
 
-var sshpubkey = fs.readFileSync('/home/bev/.ssh/authorized_keys');
 
 p2
 
+.include('roles/uvt.p2')
 .include('roles/openstack.p2')
+.include('roles/openstack_controller.p2')
 
-/////////////
+////////////////////////////////////////////////////////////////////////////
 // manager 1
 .node('manager1')
 
@@ -27,8 +30,14 @@ p2
 .file('/etc/network/interfaces', {
   ensure: 'file',
   content: {template: path.join(__dirname, 'files', 'interfaces_manager1')}
+//})
+}, function (changed) {
+  console.log('+++ changed:', changed);
+  if (changed) {
+    console.warn('reboot needed');
+    process.exit(0);
+  }
 })
-//.command('/etc/init.d/networking restart')  // TODO: trigger if file above is updated - EVENT MODEL - NEEDS a REBOOT (how to handle that and continue)
 
 .uvt_cloud_image('trusty', {arch:'amd64', ensure: 'present'})
 
@@ -36,15 +45,15 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-//.uvt_kvm('controller1', {
-//  ensure: 'absent'
-//})
-//.uvt_kvm('network1', {
-//  ensure: 'absent'
-//})
-//.uvt_kvm('cinder1', {
-//  ensure: 'absent'
-//})
+.uvt_kvm('controller1', {
+  ensure: 'absent'
+})
+.uvt_kvm('network1', {
+  ensure: 'absent'
+})
+.uvt_kvm('cinder1', {
+  ensure: 'absent'
+})
 
 .uvt_kvm('controller1', {
   //password: '******',
@@ -53,7 +62,7 @@ p2
   ipaddr: '192.168.0.90',
   netmask: '255.255.255.0',
   gateway: '192.168.0.1',
-  sshpubkey: sshpubkey,
+  sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
   memory: 512,  // MBs
   disk: 8,      // GBs
   cpu: 1        // num cpus
@@ -66,7 +75,7 @@ p2
   ipaddr: '192.168.0.91',
   netmask: '255.255.255.0',
   gateway: '192.168.0.1',
-  sshpubkey: sshpubkey,
+  sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
   memory: 512,  // MBs
   disk: 8,      // GBs
   cpu: 1        // num cpus
@@ -79,24 +88,41 @@ p2
   ipaddr: '192.168.0.92',
   netmask: '255.255.255.0',
   gateway: '192.168.0.1',
-  sshpubkey: sshpubkey,
+  sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
   memory: 512,  // MBs
   disk: 8,      // GBs
   cpu: 1        // num cpus
 })
 
-/*
-.command('uvt_kvm ssh controller1 --insecure', {
-  onlyif: function (f) {
-    var deferred = Q.defer();
+// Mount partout agent nfs share on management vms
 
-    setTimeout(function () {
-      deferred.resolve(true);
-    }, 5000);
 
-    return deferred.promise;
+
+////////////////////////////////////////////////////////////////////////////
+// classify all openstack nodes
+.node(function (f) {
+  if (f.os_hostname.match(/^(controller|network|cinder|compute)/)) {
+    return true;
   }
+  return false;
 })
-*/
+.classify('openstack_node')
+
+
+////////////////////////////////////////////////////////////////////////////
+// controller class
+.node('controller1')
+.classify('openstack_controller')
+
+
+////////////////////////////////////////////////////////////////////////////
+// Process classified roles
+.node(true)
+.file('/etc/hosts', {
+  ensure: 'file',
+  content: {template: path.join(__dirname, 'files', 'hosts.template')}
+})
+.openstack_prep_node()
+.openstack_controller()
 
 ;

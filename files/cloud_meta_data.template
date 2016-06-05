@@ -9,3 +9,4 @@ network-interfaces: |
     address {{ opts.parms.ipaddr }}
     netmask {{ opts.parms.netmask }}
     gateway {{ opts.parms.gateway }}
+    dns-nameservers 194.168.4.100 194.168.8.100

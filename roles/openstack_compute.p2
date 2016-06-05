@@ -1,0 +1,25 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var heredoc = require('heredoc');
+
+p2
+
+.role('openstack_compute', {
+  p2: function (title, opts) {
+    p2
+    .node(function (f) {
+      return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_compute');
+    })
+
+
+
+    ;
+  }
+})
+
+;

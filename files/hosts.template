@@ -1,0 +1,21 @@
+127.0.0.1  localhost
+
+# The following lines are desirable for IPv6 capable hosts
+::1  ip6-localhost  ip6-loopback
+fe00::0  ip6-localnet
+ff00::0  ip6-mcastprefix
+ff02::1  ip6-allnodes
+ff02::2  ip6-allrouters
+ff02::3  ip6-allhosts
+
+
+127.0.1.1 {{ f.os_hostname }}
+
+# Dell blades - Openstack
+192.168.0.80  manager1
+192.168.0.81  compute1
+
+# Partout provisioned Nodes
+192.168.0.90  controller1
+192.168.0.91  network1
+192.168.0.92  cinder1

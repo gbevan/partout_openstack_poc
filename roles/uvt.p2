@@ -1,0 +1,267 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var utils = new (p2.require('utils'))(),
+    u = require('util'),
+    fs = require('fs'),
+    path = require('path'),
+    heredoc = require('heredoc'),
+    uuid = require('uuid');
+
+p2
+
+/*
+ * .uvt_image('release', {arch:'amd64', ensure: 'present|absent'})
+ */
+.role('uvt_cloud_image', {
+  facts: function (deferred, facts_so_far, title, opts) {
+
+    if (facts_so_far.platform === 'linux') {
+
+      // is uvt-simplestreams-libvirt command available?
+      utils.runCmd('uvt-simplestreams-libvirt query')
+      .done(function (u_a) {
+        var rc = u_a[0],
+            stdout = u_a[1],
+            stderr = u_a[2];
+
+        if (rc !== 0) {
+          deferred.resolve();
+          return;
+        }
+
+        var facts = {
+          p2role: {
+            uvt_cloud_image: {
+              loaded: true
+            }
+          },
+          uvt_cloud_image: {}
+        };
+
+        var lines = stdout.trim().split(/\r?\n/),
+            uvtQRe = /release=(\S*) arch=(\S*) label=(.*)$/;
+
+        lines.forEach(function (line) {
+          var m = line.match(uvtQRe);
+          if (m) {
+            var release = m[1],
+                arch = m[2],
+                label = m[3];
+
+            facts.uvt_cloud_image[u.format('%s:%s', release, arch)] = {
+              release: release,
+              arch: arch,
+              label: label
+            };
+          }
+        });
+
+        console.log('uvt_cloud_image: facts:', facts);
+        deferred.resolve(facts);
+
+      });
+
+    }
+
+  },
+
+  p2: function (title, opts) {
+
+    opts.release = (opts.release ? opts.release : title);
+
+    if (!opts.release) {
+      console.error('uvt_cloud_image: release option is mandatory');
+      return;
+    }
+
+    opts.arch = (opts.arch ? (opts.arch === 'x64' ? 'amd64' : opts.arch) : 'amd64');
+
+    p2
+
+    .command('echo "***** uvt_cloud_image passed"')
+
+    .command('sync_uvt_image', {
+      cmd: u.format('uvt-simplestreams-libvirt sync release=%s arch=%s', opts.release, opts.arch),
+      onlyif: function (f) {
+        console.log('uvt_cloud_image: in cmd onlyif:', f.uvt_cloud_image[u.format('%s:%s', opts.release, opts.arch)] === undefined);
+        return f.uvt_cloud_image[u.format('%s:%s', opts.release, opts.arch)] === undefined;
+      }
+    });
+
+  }
+})
+
+/*
+ * .uvt_kvm('instance_name', {
+ *    ensure: 'present|absent',
+ *    autostart: true|false,
+ *    state: 'running|stopped',
+ *    release: 'trusty',
+ *    memory: 512,  // MBs
+ *    disk: 8,      // GBs
+ *    cpu: 1        // num cpus
+ * })
+ */
+.role('uvt_kvm', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    //console.log('uvt_kvm getting facts');
+    var facts = {
+      p2role: {
+        uvt_kvm: {
+          loaded: true
+        }
+      },
+      uvt_kvm_instance: {}
+    };
+
+    utils.runCmd('uvt-kvm list')
+    .done(function (uk_a) {
+      //console.log('uk_a:', uk_a);
+      var rc = uk_a[0],
+          stdout = uk_a[1],
+          stderr = uk_a[2];
+
+      if (rc !== 0) {
+        deferred.resolve();
+        return;
+      }
+
+      var instances = stdout.trim().split(/\r?\n/);
+
+      instances.forEach(function (i) {
+        i = i.trim();
+        if (i !== '') {
+          facts.uvt_kvm_instance[i] = true;
+        }
+      });
+
+      //console.log('uvt_kvm facts:', facts);
+      deferred.resolve(facts);
+    });
+
+  },
+
+  p2: function (title, opts) {
+
+    opts.ensure = (opts.ensure ? opts.ensure : 'present');
+    opts.state = (opts.state ? opts.state : 'running');
+    opts.autostart = (opts.autostart !== undefined ? opts.autostart : true);
+
+    if (opts.ensure === 'present') {
+      var cmd = u.format('uvt-kvm create %s release=%s', title, opts.release);
+
+      if (opts.memory) {
+        cmd += u.format(' --memory %d', opts.memory);
+      }
+
+      if (opts.disk) {
+        cmd += u.format(' --disk %d', opts.disk);
+      }
+
+      if (opts.cpu) {
+        cmd += u.format(' --cpu %d', opts.cpu);
+      }
+
+      if (opts.bridge) {
+        cmd += u.format(' --bridge %s', opts.bridge);
+      }
+//
+//      if (opts.password) {
+//        cmd += u.format(' --password \'%s\'', opts.password);
+//      }
+
+      var sshpubkeys = [];
+      if (opts.sshpubkey_files) {
+        opts.sshpubkey_files.forEach(function (f) {
+          sshpubkeys.push(fs.readFileSync(f));
+        });
+      }
+
+      var cloud_user_data_file = u.format('/tmp/%s_user_data', title),
+          cloud_meta_data_file = u.format('/tmp/%s_meta_data', title);
+
+      cmd += u.format(' --user-data %s', cloud_user_data_file);
+      cmd += u.format(' --meta-data %s', cloud_meta_data_file);
+
+      p2
+
+      // create user_data file from template
+      .file(cloud_user_data_file, {
+        ensure: 'file',
+        content: {template: path.join(__dirname, '..', 'files', 'cloud_user_data.template')},
+        parms: {
+          hostname: title,
+          password: opts.password,
+          sshpubkeys: sshpubkeys.join(',')
+        }
+      })
+
+      // create meta_data file from template
+      .file(cloud_meta_data_file, {
+        ensure: 'file',
+        content: {template: path.join(__dirname, '..', 'files', 'cloud_meta_data.template')},
+        parms: {
+          instance_uuid: uuid.v1(),
+          ipaddr: opts.ipaddr,
+          netmask: opts.netmask,
+          gateway: opts.gateway
+        }
+      })
+
+      .command(cmd, {
+        onlyif: function (f) {
+          //console.log('uvt-kvm onlyif:', f.uvt_kvm_instance);
+          return f.uvt_kvm_instance[title] === undefined;
+        }
+      })
+
+      // state: running|stopped
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list --inactive | tail -n +3  | sed 's/ -[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh start @
+        */}).trim(),
+        onlyif: function (f) {return opts.state === 'running';}
+      })
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list | tail -n +3  | sed 's/ [0-9]\+[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh shutdown @
+        */}).trim(),
+        onlyif: function (f) {return opts.state === 'stopped';}
+      })
+
+      // autostart: true|false
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list --all --no-autostart | tail -n +3  | sed 's/ [-0-9]\+[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh autostart @
+        */}).trim(),
+        onlyif: function (f) {return opts.autostart;}
+      })
+      .command(title, {
+        cmd: heredoc.strip(function () {/*
+        virsh list --all --autostart | tail -n +3  | sed 's/ [-0-9]\+[ ]\+//' | grep "^{{ title }} " | awk '{ print $1; }' | xargs -i@ virsh autostart --disable @
+        */}).trim(),
+        onlyif: function (f) {return opts.state === 'stopped';}
+      })
+
+
+      ;
+
+    } else if (opts.ensure === 'absent') {
+      p2
+      .command(u.format('uvt-kvm destroy %s', title), {
+        onlyif: function (f) {
+          return f.uvt_kvm_instance[title] !== undefined;
+        }
+      })
+      ;
+    }
+
+  }
+})
+
+;
