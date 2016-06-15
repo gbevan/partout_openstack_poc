@@ -5,10 +5,20 @@
 // make parent node_modules available to sync'd manifest
 module.paths = module.paths.concat(module.parent.paths);
 
-var heredoc = require('heredoc');
+var heredoc = require('heredoc'),
+    path = require('path'),
+    u = require('util');
 
 p2
 
+/**
+ * p2
+ * .openstack_controller('controller', {
+ *   mysql_pass: 'password',
+ *   ip: 'contoller_ip_address',
+ *   rabbit_pass: 'password'
+ * })
+ */
 .role('openstack_controller', {
   p2: function (title, opts) {
     p2
@@ -16,16 +26,145 @@ p2
       return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_controller');
     })
 
+
+    /////////////////////////////
+    // MariaDB/MySQL
+
     // TODO: Passing configs for silent installs needs to be supported by package module
-    .command(heredoc(function () {/*
-    echo 'mariadb-server-5.5  mysql-server/root_password  password mypass' | debconf-set-selections;
-    echo 'mariadb-server-5.5  mysql-server/root_password_again  password mypass' | debconf-set-selections
-    */}))
+    .command(u.format(heredoc(function () {/*
+    echo 'mariadb-server-5.5  mysql-server/root_password  password "%s"' | debconf-set-selections;
+    echo 'mariadb-server-5.5  mysql-server/root_password_again  password "%s"' | debconf-set-selections
+    */}), opts.mysql_pass, opts.mysql_pass), {
+      onlyif: function (f) {
+        return !f.installed_packages['mariadb-server'];
+      }
+    })
 
     .package('mariadb-server')
 
+    .command(heredoc(function () {/*
+    echo 'mariadb-server-5.5  mysql-server/root_password  password "********"' | debconf-set-selections;
+    echo 'mariadb-server-5.5  mysql-server/root_password_again  password "********"' | debconf-set-selections
+    */}), {
+      onlyif: '! (debconf-get-selections | grep \'^mariadb-server-5.5.*root_password_again[^*]*\\*\\*\\*\\*\\*\\*\\*\\*\' > /dev/null)'
+    })
+
     .package('python-pymysql')
 
+    .file('/etc/mysql/conf.d/openstack.cnf', {
+      ensure: 'file',
+      content: {template: path.join(__dirname, '..', 'files', 'mysqld_openstack.template')},
+      parms: {
+        datetime: '' //new Date()  // XXX: force recreate every time - for testing events
+      }
+    })
+
+    .service('mysql', {
+      ensure: 'running',
+      enabled: true,
+      on: {
+        'file:/etc/mysql/conf.d/openstack.cnf:changed': function () {
+          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+          p2
+          .service('mysql', {ensure: 'stopped'})
+          .service('mysql', {ensure: 'running'})
+          .command(u.format(heredoc(function () {/*
+            sleep 5;
+            cd /;
+            mysql_secure_installation <<EOF
+
+y
+%s
+%s
+y
+y
+y
+y
+EOF
+          */}), opts.mysql_pass, opts.mysql_pass))
+          ;
+        }
+      }
+    })
+
+
+    /////////////////////////////
+    // MongoDB
+
+    .package('mongodb-server')
+    .package('mongodb-clients')
+    .package('python-pymongo')
+
+    .file('/etc/mongodb.conf', {
+      content: {template: path.join(__dirname, '..', 'files', 'mongodb.conf.template')},
+      parms: {
+        bind_ip: opts.ip
+      }
+    })
+
+    .service('mongodb', {
+      ensure: 'running',
+      enabled: true,
+      on: {
+        'file:/etc/mongodb.conf:changed': function () {
+          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+          p2
+          .service('mongodb', {ensure: 'stopped'})
+          // rm /var/lib/mongodb/journal/prealloc.*   ???
+          .service('mongodb', {ensure: 'running'})
+          ;
+        }
+      }
+    })
+
+
+    /////////////////////////////
+    // RabbitMQ
+
+    .package('rabbitmq-server')
+
+//    .service('rabbitmq-server', {
+//      ensure: 'running'
+//    })
+
+    .on('package:rabbitmq-server:changed', function () {
+      p2
+      .command('rabbitmqctl add_user openstack \'{{ opts.parms.rabbit_pass }}\'', {
+        parms: {
+          rabbit_pass: opts.rabbit_pass
+        }
+      })
+      .command('rabbitmqctl set_permissions openstack ".*" ".*" ".*"')
+      ;
+    })
+
+
+    /////////////////////////////
+    // Memcached
+
+    .package('memcached')
+    .package('python-memcache')
+
+    .file('/etc/memcached.conf', {
+      content: {template: path.join(__dirname, '..', 'files', 'memcached.conf.template')},
+      parms: {
+        bind_ip: opts.ip
+      }
+    })
+
+    .service('memcached', {
+      ensure: 'running',
+      enabled: true,
+      on: {
+        'file:/etc/memcached.conf:changed': function () {
+          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+          p2
+          .service('memcached', {ensure: 'stopped'})
+          .service('memcached', {ensure: 'running'})
+          ;
+        }
+      }
+    })
 
     ;
   }
