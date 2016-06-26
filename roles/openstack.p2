@@ -41,6 +41,10 @@ p2
     .package('uvtool')
     .package('uvtool-libvirt')
 
+    .file('/etc/default/grub', {
+      content: {file: path.join(__dirname, '..', 'files', 'default_grub.template')}
+    })
+
     ;
 
   }
@@ -48,8 +52,11 @@ p2
 
 .role('openstack_prep_node', {
   p2: function (title, opts) {
+    console.warn('******* openstack_prep_node');
     p2
     .node(function (f) {
+      console.log('>>> f.os_dist_id:', f.os_dist_id, 'hasClass openstack_node:', p2.hasClass('openstack_node'));
+      console.log('>>> agent_classes:', f.agent_classes);
       return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_node');
     })
     .command(
@@ -61,6 +68,7 @@ p2
       add-apt-repository cloud-archive:{{ opts.parms.openstack_version }} && \
       apt-get update && apt-get -yq dist-upgrade && \
       apt-get install -yq python-openstackclient && \
+      apt-get install python-pip -y && \
       touch /.prep_for_openstack
       */}), {
       creates: '/.prep_for_openstack',

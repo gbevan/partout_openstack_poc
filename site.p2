@@ -48,9 +48,9 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-//.uvt_kvm('controller1', {
-//  ensure: 'absent'
-//})
+.uvt_kvm('controller1', {
+  ensure: 'absent'
+})
 //.uvt_kvm('network1', {
 //  ensure: 'absent'
 //})
@@ -108,7 +108,7 @@ p2
 ////////////////////////////////////////////////////////////////////////////
 // classify all openstack nodes
 .node(function (f) {
-  if (f.os_hostname.match(/^(controller|network|cinder|compute)/)) {
+  if (f.os_hostname.match(/^(controller|network|cinder|compute).*$/)) {
     return true;
   }
   return false;
@@ -135,7 +135,8 @@ p2
 .openstack_controller('controller', {
   ip: controller_ip,
   mysql_pass: 'mypass1',
-  rabbit_pass: 'rbpass1'
+  rabbit_pass: 'rbpass1',
+  keystone_pass: 'keypass1'
 })
 
 //.openstack_cinder()

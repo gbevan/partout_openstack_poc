@@ -7,16 +7,20 @@ module.paths = module.paths.concat(module.parent.paths);
 
 var heredoc = require('heredoc'),
     path = require('path'),
-    u = require('util');
+    u = require('util'),
+    forge = require('node-forge');
 
 p2
+
+.include('roles/mysql')
 
 /**
  * p2
  * .openstack_controller('controller', {
- *   mysql_pass: 'password',
  *   ip: 'contoller_ip_address',
- *   rabbit_pass: 'password'
+ *   mysql_pass: 'password',
+ *   rabbit_pass: 'password',
+ *   keystone_pass: 'password'
  * })
  */
 .role('openstack_controller', {
@@ -40,7 +44,8 @@ p2
       }
     })
 
-    .package('mariadb-server')
+    //.package('mariadb-server', {ensure: 'absent'})
+    .package('mariadb-server', {ensure: 'present'})
 
     .command(heredoc(function () {/*
     echo 'mariadb-server-5.5  mysql-server/root_password  password "********"' | debconf-set-selections;
@@ -50,6 +55,10 @@ p2
     })
 
     .package('python-pymysql')
+//    .package('PyMySQL', {
+//      ensure: 'present',
+//      provider: 'pip'
+//    })
 
     .file('/etc/mysql/conf.d/openstack.cnf', {
       ensure: 'file',
@@ -166,8 +175,98 @@ EOF
       }
     })
 
+
+    /////////////////////////////
+    // Connect to the database
+    .mysql_connect(p2.facts.os_hostname, {
+      //host: '127.0.0.1',
+      socketPath: '/var/run/mysqld/mysqld.sock',
+      user: 'root',
+      password: opts.mysql_pass,
+      debug: true
+    })
+
+    /////////////////////////////
+    // Keystone
+
+//    .mysql_database('keystone', {
+//      ensure: 'absent',
+//      connection: p2.facts.os_hostname
+//    })
+
+    .mysql_database('keystone', {
+      ensure: 'present',
+    })
+
+    .mysql_grant('keystone localhost', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'keystone.*',
+      userspecs: {user: 'keystone', host: 'localhost'},
+      identifiedby: opts.keystone_pass
+    })
+
+    .mysql_grant('keystone %', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'keystone.*',
+      userspecs: {user: 'keystone', host: '%'},
+      identifiedby: opts.keystone_pass
+    })
+
+
+    // var admin_token = forge.util.bytesToHex(forge.random.getBytesSync(10));
+
+    .file('/etc/init/keystone.override', {
+      ensure: 'present',
+      content: 'manual\n'
+    })
+
+    .package('keystone')
+    .package('apache2')
+    .package('libapache2-mod-wsgi')
+
+
+    .file('/etc/keystone/keystone.conf', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'keystone.conf.template')},
+      parms: {
+        hostname: p2.facts.os_hostname,
+        keystone_dbpass: opts.keystone_pass
+      }
+    })
+
+    .on('file:/etc/keystone/keystone.conf:changed', function () {
+      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+      p2
+      //.service('keystone', {ensure: 'stopped'})
+      //.service('keystone', {ensure: 'running'})
+      .command('su -s /bin/sh -c "keystone-manage db_sync" keystone')
+      .command('keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone')
+      ;
+    })
+
+    .file('/etc/apache2/sites-available/wsgi-keystone.conf', {
+      ensure: 'present',
+      content: {template: path.join(__dirname, '..', 'files', 'wsgi-keystone.conf.template')}
+    })
+
+    .file('/etc/apache2/sites-enabled/wsgi-keystone.conf', {
+      ensure: 'link',
+      target: '/etc/apache2/sites-available/wsgi-keystone.conf'
+    })
+
+    .on('file:/etc/apache2/sites-enabled/wsgi-keystone.conf:changed', function () {
+      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+      p2
+      .service('apache2', {ensure: 'stopped'})
+      .service('apache2', {ensure: 'running'})
+      .command('rm -f /var/lib/keystone/keystone.db')
+      ;
+    })
+
     ;
-  }
-})
+  } // p2
+}) // role openstack_controller
 
 ;
