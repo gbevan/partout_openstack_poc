@@ -60,7 +60,7 @@ p2
 
 
 /*
- * Note: kernel option "iommu=soft" needed on dell poweredge blades
+ * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
  */
 .uvt_kvm('controller1', {
   //password: '******',
