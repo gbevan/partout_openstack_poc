@@ -1,0 +1,75 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var utils = new (p2.require('utils'))(),
+    u = require('util'),
+    fs = require('fs'),
+    path = require('path'),
+    heredoc = require('heredoc'),
+    uuid = require('uuid'),
+    Q = require('q');
+
+p2
+
+/*
+ * .openstack_service('keystone', {
+ *   description: 'OpenStack Indentity',
+ *   type: 'identity',
+ *   ensure: 'present|absent'
+ * })
+ */
+.role('openstack_service', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    var facts = {};
+
+    // OS_TOKEN="2b3dd0d669e505d07af7" OS_URL="http://controller1:35357/v3" OS_IDENTITY_API_VERSION=3 openstack service list -f json
+
+    deferred.resolve(facts);
+  },
+
+  p2: function (title, opts) {
+
+    // get status
+    return utils.runCmd(u.format('openstack service show %s', title))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (opts.ensure === 'present') {
+        if (rc !== 0) {
+          // create service
+          console.info('Creating openstack service ', title);
+          p2
+          .command(u.format(
+            'openstack service create --name "%s" --description "%s" %s',
+            title,
+            (opts.description || title),
+            opts.type
+          ));
+        }
+
+      } else if (opts.ensure === 'absent') {
+        if (rc === 0) {
+          // delete service
+          console.info('Deleting openstack service ', title);
+          p2
+          .command(u.format(
+            'openstack service delete "%s"',
+            title
+          ));
+        }
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+    });
+  }
+
+})
+
+;

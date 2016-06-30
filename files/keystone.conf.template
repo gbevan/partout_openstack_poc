@@ -11,7 +11,7 @@
 # paste application pipelines (for example, in keystone-
 # paste.ini). (string value)
 
-admin_token=84bb864b52ab9e9bdf14
+admin_token={{ f.openstack_os_token }}
 
 # The IP Address of the network interface to for the public
 # service to listen on. (string value)

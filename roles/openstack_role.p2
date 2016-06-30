@@ -1,0 +1,94 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var utils = new (p2.require('utils'))(),
+    u = require('util'),
+    fs = require('fs'),
+    path = require('path'),
+    heredoc = require('heredoc'),
+    uuid = require('uuid'),
+    Q = require('q'),
+    _ = require('lodash');
+
+p2
+
+/*
+ * .openstack_role('admin', {
+ *   project: 'admin',
+ *   user: 'admin',
+ *   ensure: 'present|absent'
+ * })
+ */
+.role('openstack_role', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    var facts = {};
+
+    deferred.resolve(facts);
+  },
+
+  p2: function (title, opts) {
+
+    // get status
+    return utils.runCmd(u.format('openstack role list -f json'))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        return Q.reject(new Error('openstack role list failed'));
+      }
+      stdout = stdout.trim();
+      //console.log('stdout:', stdout);
+
+      var roles_list = JSON.parse((stdout || '[]')),
+          roles_byName = {};
+      roles_list.forEach(function (role) {
+        roles_byName[role.Name] = role;
+      });
+
+      if (opts.ensure === 'present') {
+        if (!roles_byName[title]) {
+          // create role
+          console.info('Creating openstack role ', title);
+
+          // openstack role create --domain default --password ******** admin
+          p2
+          .command(u.format(
+            'openstack role create "%s"',
+            title
+          ))
+
+          // TODO: Handle role assocs to projects/domains and users/groups separately
+          .command(u.format(
+            'openstack role add --project "%s" --user "%s" "%s"',
+            opts.project,
+            opts.user,
+            title
+          ));
+        }
+
+      } else if (opts.ensure === 'absent') {
+        if (roles_byName[title]) {
+          // delete role
+          console.info('Deleting openstack role ', title);
+          p2
+          .command(u.format(
+            'openstack role delete %s"',
+            title
+          ));
+        }
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+    });
+  }
+
+})
+
+;

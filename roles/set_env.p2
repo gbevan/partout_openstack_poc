@@ -1,0 +1,79 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var Mustache = require('mustache'),
+    console = require('better-console'),
+    mysql = require('mysql'),
+    Q = require('q'),
+    u = require('util'),
+    pfs = new (p2.require('pfs'))();
+
+p2
+
+/**
+ * p2
+ * .set_env('env_var_name', {
+ *   file: filename,  // or
+ *   value: value,    // or
+ *   url: url,  // TODO, or
+ * })
+ *
+ */
+.role('set_env', {
+  p2: function (title, opts) {
+    var deferred = Q.defer(),
+        opts_deferred = Q.defer();
+
+    if (opts.value) {
+      opts_deferred.resolve(opts.value);
+
+    } else if (opts.file) {
+
+      opts.file = Mustache.render(opts.file, {
+        title: title,
+        opts: opts,
+        f: p2.facts
+      });
+
+      pfs.pReadFile(opts.file)
+      .then(function (data) {
+        if (data) {
+          data = data.toString().trim();
+        }
+        opts_deferred.resolve(data);
+      });
+
+    }
+
+    opts_deferred
+    .promise
+    .then(function (data) {
+      if (data !== undefined) {
+
+        if (typeof(data) === 'string') {
+          data = Mustache.render(data, {
+            title: title,
+            opts: opts,
+            f: p2.facts
+          });
+        }
+
+        process.env[title] = data;
+        console.info(u.format('Set Env Var "%s" = "%s"', title, data));
+      } else {
+        delete process.env[title];
+      }
+      deferred.resolve();
+
+    })
+    .done(null, function (err) {
+      deferred.reject(err);
+    });
+
+    return deferred.promise;
+  }
+});

@@ -12,7 +12,16 @@ var heredoc = require('heredoc'),
 
 p2
 
+// TODO: move roles into partout itself
 .include('roles/mysql')
+.include('roles/add_fact')
+.include('roles/set_env')
+.include('roles/openstack_service')
+.include('roles/openstack_endpoint')
+.include('roles/openstack_domain')
+.include('roles/openstack_project')
+.include('roles/openstack_user')
+.include('roles/openstack_role')
 
 /**
  * p2
@@ -183,7 +192,7 @@ EOF
       socketPath: '/var/run/mysqld/mysqld.sock',
       user: 'root',
       password: opts.mysql_pass,
-      debug: true
+      debug: false
     })
 
     /////////////////////////////
@@ -226,6 +235,14 @@ EOF
     .package('apache2')
     .package('libapache2-mod-wsgi')
 
+    // Generate random admin token
+    .command('openssl rand -hex 10 > {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token; chmod 600 {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token', {
+      creates: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token'
+    })
+
+    .add_fact('openstack_os_token', {
+      file: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token'
+    })
 
     .file('/etc/keystone/keystone.conf', {
       ensure: 'present',
@@ -246,6 +263,18 @@ EOF
       ;
     })
 
+    .file('/etc/apache2/apache2.conf', {
+      ensure: 'present',
+      content: {template: path.join(__dirname, '..', 'files', 'apache2.conf.template')}
+    })
+//    .on('file:/etc/apache2/apache2.conf:changed', function () {
+//      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+//      p2
+//      .service('apache2', {ensure: 'stopped'})
+//      .service('apache2', {ensure: 'running'})
+//      ;
+//    })
+
     .file('/etc/apache2/sites-available/wsgi-keystone.conf', {
       ensure: 'present',
       content: {template: path.join(__dirname, '..', 'files', 'wsgi-keystone.conf.template')}
@@ -256,13 +285,117 @@ EOF
       target: '/etc/apache2/sites-available/wsgi-keystone.conf'
     })
 
-    .on('file:/etc/apache2/sites-enabled/wsgi-keystone.conf:changed', function () {
-      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
-      p2
-      .service('apache2', {ensure: 'stopped'})
-      .service('apache2', {ensure: 'running'})
-      .command('rm -f /var/lib/keystone/keystone.db')
-      ;
+//    .on('file:/etc/apache2/sites-enabled/wsgi-keystone.conf:changed', function () {
+//      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+//      p2
+//      .service('apache2', {ensure: 'stopped'})
+//      .service('apache2', {ensure: 'running', enabled: true})
+//      .command('rm -f /var/lib/keystone/keystone.db')
+//      ;
+//    })
+
+    .service('apache2', {
+      ensure: 'running',
+      enabled: true,
+      on: {
+//        'file:/etc/apache2/apache2.conf:changed': function () {
+//          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+//          p2
+//          .service('apache2', {ensure: 'stopped'})
+//          .service('apache2', {ensure: 'running'})
+//          ;
+//        },
+        'file:/etc/apache2/sites-enabled/wsgi-keystone.conf:changed': function () {
+          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
+          p2
+          .service('apache2', {ensure: 'stopped'})
+          .service('apache2', {ensure: 'running'})
+          .command('rm -f /var/lib/keystone/keystone.db')
+          ;
+        }
+      }
+    })
+
+    .set_env('OS_TOKEN', { value: '{{ f.openstack_os_token }}'})
+    .set_env('OS_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+    .set_env('OS_IDENTITY_API_VERSION', { value: 3})
+
+    .openstack_service('keystone', {
+      description: 'OpenStack Identity',
+      type: 'identity',
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/identity/public', {
+      region: 'RegionOne',
+      service_type: 'identity',
+      interface: 'public',
+      url: u.format('http://%s:5000/v3', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+    .openstack_endpoint('RegionOne/identity/internal', {
+      region: 'RegionOne',
+      service_type: 'identity',
+      interface: 'internal',
+      url: u.format('http://%s:5000/v3', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+    .openstack_endpoint('RegionOne/identity/admin', {
+      region: 'RegionOne',
+      service_type: 'identity',
+      interface: 'admin',
+      url: u.format('http://%s:35357/v3', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+
+    .openstack_domain('default', {
+      description: 'Default Domain',
+      ensure: 'present'
+    })
+
+    // Project Admin
+    .openstack_project('admin', {
+      description: 'Admin Project',
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    .openstack_user('admin', {
+      password: opts.admin_user_pass,
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    .openstack_role('admin', {
+      project: 'admin',
+      user: 'admin',
+      ensure: 'present'
+    })
+
+    // Project Service
+    .openstack_project('service', {
+      description: 'Service Project',
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    // Project Demo
+    .openstack_project('demo', {
+      description: 'Demo Project',
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    .openstack_user('demo', {
+      password: opts.demo_user_pass,
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    .openstack_role('user', {
+      project: 'demo',
+      user: 'demo',
+      ensure: 'present'
     })
 
     ;

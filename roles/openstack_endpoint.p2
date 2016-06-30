@@ -1,0 +1,106 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var utils = new (p2.require('utils'))(),
+    u = require('util'),
+    fs = require('fs'),
+    path = require('path'),
+    heredoc = require('heredoc'),
+    uuid = require('uuid'),
+    Q = require('q'),
+    _ = require('lodash');
+
+p2
+
+/*
+ * .openstack_endpoint('RegionOne/identity/public', {
+ *   region: 'RegionOne',
+ *   service_type: 'identity',
+ *   interface: 'public',
+ *   url: 'http://controller1:5000/v3'
+ *   ensure: 'present|absent'
+ * })
+ */
+.role('openstack_endpoint', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    var facts = {};
+
+    // OS_TOKEN="2b3dd0d669e505d07af7" OS_URL="http://controller1:35357/v3" OS_IDENTITY_API_VERSION=3 openstack endpoint list -f json
+
+    deferred.resolve(facts);
+  },
+
+  p2: function (title, opts) {
+    var endpoint_key = u.format(
+      '%s/%s/%s',
+      opts.region,
+      opts.service_type,
+      opts.interface
+    );
+
+    // get status
+    return utils.runCmd(u.format('openstack endpoint list -f json'))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        return Q.reject(new Error('openstack enpoint list failed'));
+      }
+      stdout = stdout.trim();
+      //console.log('stdout:', stdout);
+
+      var endpoints_list = JSON.parse((stdout || '[]')),
+          endpoints_byId = {},
+          endpoints_byKey = {};
+      endpoints_list.forEach(function (endpoint) {
+        endpoints_byId[endpoint.ID] = endpoint;
+        endpoints_byKey[u.format(
+          '%s/%s/%s',
+          endpoint.Region,
+          endpoint['Service Type'],
+          endpoint.Interface
+        )] = endpoint;
+      });
+
+
+      if (opts.ensure === 'present') {
+        if (!endpoints_byKey[endpoint_key]) {
+          // create endpoint
+          console.info('Creating openstack endpoint ', endpoint_key);
+          p2
+          .command(u.format(
+            'openstack endpoint create --region "%s" "%s" "%s" %s',
+            opts.region,
+            opts.service_type,
+            opts.interface,
+            opts.url
+          ));
+        }
+
+      } else if (opts.ensure === 'absent') {
+        if (endpoints_byKey[endpoint_key]) {
+          var id = endpoints_byKey[endpoint_key].ID;
+          // delete endpoint
+          console.info('Deleting openstack endpoint ', endpoint_key);
+          p2
+          .command(u.format(
+            'openstack endpoint delete "%s"',
+            id
+          ));
+        }
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+    });
+  }
+
+})
+
+;

@@ -70,9 +70,9 @@ p2
   netmask: '255.255.255.0',
   gateway: '192.168.0.1',
   sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
-  memory: 512,  // MBs
+  memory: 2048,  // MBs
   disk: 8,      // GBs
-  cpu: 1        // num cpus
+  cpu: 2        // num cpus
 })
 
 .uvt_kvm('network1', {
@@ -136,7 +136,9 @@ p2
   ip: controller_ip,
   mysql_pass: 'mypass1',
   rabbit_pass: 'rbpass1',
-  keystone_pass: 'keypass1'
+  keystone_pass: 'keypass1',
+  admin_user_pass: 'adminpass1',
+  demo_user_pass: 'demopass1'
 })
 
 //.openstack_cinder()
