@@ -398,6 +398,39 @@ EOF
       ensure: 'present'
     })
 
+    /*
+     * TODO:
+     *  http://docs.openstack.org/mitaka/install-guide-ubuntu/keystone-verify.html
+
+    For security reasons, disable the temporary authentication token mechanism:
+
+    Edit the /etc/keystone/keystone-paste.ini file and remove admin_token_auth from the [pipeline:public_api], [pipeline:admin_api], and [pipeline:api_v3] sections.
+
+    Unset the temporary OS_TOKEN and OS_URL environment variables:
+    */
+
+    // Create client environment scripts
+    .file('/root/admin-openrc', {
+      ensure: 'present',
+      content: {template: path.join(__dirname, '..', 'files', 'admin-openrc.template')},
+      mode: '0700',
+      owner: 'root',
+      group: 'root',
+      parms: {
+        admin_user_pass: opts.admin_user_pass
+      }
+    })
+    .file('/root/demo-openrc', {
+      ensure: 'present',
+      content: {template: path.join(__dirname, '..', 'files', 'demo-openrc.template')},
+      mode: '0700',
+      owner: 'root',
+      group: 'root',
+      parms: {
+        demo_user_pass: opts.demo_user_pass
+      }
+    })
+
     ;
   } // p2
 }) // role openstack_controller
