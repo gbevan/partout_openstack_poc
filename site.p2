@@ -137,8 +137,10 @@ p2
   mysql_pass: 'mypass1',
   rabbit_pass: 'rbpass1',
   keystone_pass: 'keypass1',
+  glance_pass: 'glancepass1',
   admin_user_pass: 'adminpass1',
-  demo_user_pass: 'demopass1'
+  demo_user_pass: 'demopass1',
+  glance_user_pass: 'glancepass1'
 })
 
 //.openstack_cinder()

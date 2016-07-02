@@ -17,6 +17,7 @@ p2
 /**
  * p2
  * .set_env('env_var_name', {
+ *   ensure: 'present|absent',
  *   file: filename,  // or
  *   value: value,    // or
  *   url: url,  // TODO, or
@@ -27,6 +28,10 @@ p2
   p2: function (title, opts) {
     var deferred = Q.defer(),
         opts_deferred = Q.defer();
+
+    if (!opts.ensure) {
+      opts.ensure = (opts.value === undefined ? 'absent' :'present');
+    }
 
     if (opts.value) {
       opts_deferred.resolve(opts.value);
@@ -47,12 +52,14 @@ p2
         opts_deferred.resolve(data);
       });
 
+    } else {
+      opts_deferred.resolve();  // no value will unset var
     }
 
     opts_deferred
     .promise
     .then(function (data) {
-      if (data !== undefined) {
+      if (opts.ensure === 'present') {
 
         if (typeof(data) === 'string') {
           data = Mustache.render(data, {
@@ -64,10 +71,15 @@ p2
 
         process.env[title] = data;
         console.info(u.format('Set Env Var "%s" = "%s"', title, data));
-      } else {
+        deferred.resolve();
+
+      } else  if (opts.ensure === 'absent') {
         delete process.env[title];
+        deferred.resolve();
+
+      } else {
+        deferred.reject(new Error('Invalid ensure value in set_env'));
       }
-      deferred.resolve();
 
     })
     .done(null, function (err) {

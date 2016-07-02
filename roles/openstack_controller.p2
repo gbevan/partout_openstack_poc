@@ -430,6 +430,76 @@ EOF
         demo_user_pass: opts.demo_user_pass
       }
     })
+    /*
+     * . admin-openrc
+     * openstack token issue
+     */
+
+
+    /////////////////////////////
+    // Glance
+
+    .mysql_database('glance', {
+      ensure: 'present',
+    })
+
+    .mysql_grant('glance localhost', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'glance.*',
+      userspecs: {user: 'glance', host: 'localhost'},
+      identifiedby: opts.glance_pass
+    })
+
+    .mysql_grant('glance %', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'glance.*',
+      userspecs: {user: 'glance', host: '%'},
+      identifiedby: opts.glance_pass
+    })
+
+    .openstack_user('glance', {
+      password: opts.glance_user_pass,
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    .openstack_role('admin', {
+      project: 'service',
+      user: 'glance',
+      ensure: 'present'
+    })
+
+    .openstack_service('glance', {
+      description: 'OpenStack Image',
+      type: 'image',
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/image/public', {
+      region: 'RegionOne',
+      service_type: 'image',
+      interface: 'public',
+      url: u.format('http://%s:9292', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/image/internal', {
+      region: 'RegionOne',
+      service_type: 'image',
+      interface: 'internal',
+      url: u.format('http://%s:9292', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/image/admin', {
+      region: 'RegionOne',
+      service_type: 'image',
+      interface: 'admin',
+      url: u.format('http://%s:9292', p2.facts.os_hostname),
+      ensure: 'present'
+    })
 
     ;
   } // p2
