@@ -12,7 +12,8 @@ var path = require('path'),
     u = require('util'),
     Q = require('q'),
     heredoc = require('heredoc'),
-    uuid = require('uuid');
+    uuid = require('uuid'),
+    console = require('better-console');
 
 p2
 
@@ -52,15 +53,15 @@ p2
 
 .role('openstack_prep_node', {
   p2: function (title, opts) {
-    console.warn('******* openstack_prep_node');
+    console.info('Preparing node for OpenStack...');
     p2
     .node(function (f) {
-      console.log('>>> f.os_dist_id:', f.os_dist_id, 'hasClass openstack_node:', p2.hasClass('openstack_node'));
-      console.log('>>> agent_classes:', f.agent_classes);
+      utils.dlog('>>> f.os_dist_id:', f.os_dist_id, 'hasClass openstack_node:', p2.hasClass('openstack_node'));
+      utils.dlog('>>> agent_classes:', f.agent_classes);
       return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_node');
     })
-    .command(
-      heredoc.strip(function () {/*
+    .command('prep_for_openstack', {
+      cmd: heredoc.strip(function () {/*
       export DEBIAN_FRONTEND="noninteractive";
       export APT_LISTBUGS_FRONTEND="none";
       export APT_LISTCHANGES_FRONTEND="none";
@@ -70,7 +71,7 @@ p2
       apt-get install -yq python-openstackclient && \
       apt-get install python-pip -y && \
       touch /.prep_for_openstack
-      */}), {
+      */}),
       creates: '/.prep_for_openstack',
       parms: {
         openstack_version: 'mitaka'

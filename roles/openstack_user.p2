@@ -40,7 +40,7 @@ p2
           stderr = res[2];
 
       if (rc !== 0) {
-        return Q.reject(new Error('openstack user list failed'));
+        return Q.reject(new Error('openstack user list failed stderr:' + stderr));
       }
       stdout = stdout.trim();
       //console.log('stdout:', stdout);

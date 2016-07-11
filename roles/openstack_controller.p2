@@ -5,10 +5,12 @@
 // make parent node_modules available to sync'd manifest
 module.paths = module.paths.concat(module.parent.paths);
 
-var heredoc = require('heredoc'),
+var console = require('better-console'),
+    heredoc = require('heredoc'),
     path = require('path'),
     u = require('util'),
-    forge = require('node-forge');
+    forge = require('node-forge'),
+    pfs = new (p2.require('pfs'))();
 
 p2
 
@@ -16,12 +18,15 @@ p2
 .include('roles/mysql')
 .include('roles/add_fact')
 .include('roles/set_env')
+.include('roles/source_env')
+.include('roles/sleep')
 .include('roles/openstack_service')
 .include('roles/openstack_endpoint')
 .include('roles/openstack_domain')
 .include('roles/openstack_project')
 .include('roles/openstack_user')
 .include('roles/openstack_role')
+.include('roles/openstack_image')
 
 /**
  * p2
@@ -82,11 +87,11 @@ p2
       enabled: true,
       on: {
         'file:/etc/mysql/conf.d/openstack.cnf:changed': function () {
-          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
           p2
           .service('mysql', {ensure: 'stopped'})
           .service('mysql', {ensure: 'running'})
-          .command(u.format(heredoc(function () {/*
+          .command('mysql_secure_installation', {
+            cmd: u.format(heredoc(function () {/*
             sleep 5;
             cd /;
             mysql_secure_installation <<EOF
@@ -99,7 +104,8 @@ y
 y
 y
 EOF
-          */}), opts.mysql_pass, opts.mysql_pass))
+          */}), opts.mysql_pass, opts.mysql_pass)
+          })
           ;
         }
       }
@@ -125,7 +131,6 @@ EOF
       enabled: true,
       on: {
         'file:/etc/mongodb.conf:changed': function () {
-          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
           p2
           .service('mongodb', {ensure: 'stopped'})
           // rm /var/lib/mongodb/journal/prealloc.*   ???
@@ -175,7 +180,6 @@ EOF
       enabled: true,
       on: {
         'file:/etc/memcached.conf:changed': function () {
-          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
           p2
           .service('memcached', {ensure: 'stopped'})
           .service('memcached', {ensure: 'running'})
@@ -223,6 +227,7 @@ EOF
       identifiedby: opts.keystone_pass
     })
 
+    // TODO: sysctl -w 'net.ipv4.ip_local_reserved_ports=35357'
 
     // var admin_token = forge.util.bytesToHex(forge.random.getBytesSync(10));
 
@@ -235,14 +240,35 @@ EOF
     .package('apache2')
     .package('libapache2-mod-wsgi')
 
-    // Generate random admin token
-    .command('openssl rand -hex 10 > {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token; chmod 600 {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token', {
-      creates: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token'
+
+
+    ///////////////////////////////////////////////////////////
+    // Generate random admin token, if needed (initially)
+    .command('openstack_os_token', {
+      cmd: 'openssl rand -hex 10 > {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token; chmod 600 {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token',
+      creates: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token',
+      onlyif: function (f) {
+        return pfs.pExists(path.join('root', 'admin-openrc'))
+        .then(function (exists) {
+          return !exists;
+        });
+      }
     })
 
     .add_fact('openstack_os_token', {
-      file: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token'
+      file: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token',
+      hidden: true
     })
+
+    .on('command:openstack_os_token:changed', function () {
+      p2
+      .set_env('OS_TOKEN', { value: '{{ f.openstack_os_token }}'})
+      .set_env('OS_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+      .set_env('OS_IDENTITY_API_VERSION', { value: 3})
+      ;
+    })
+
+
 
     .file('/etc/keystone/keystone.conf', {
       ensure: 'present',
@@ -254,10 +280,7 @@ EOF
     })
 
     .on('file:/etc/keystone/keystone.conf:changed', function () {
-      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
       p2
-      //.service('keystone', {ensure: 'stopped'})
-      //.service('keystone', {ensure: 'running'})
       .command('su -s /bin/sh -c "keystone-manage db_sync" keystone')
       .command('keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone')
       ;
@@ -267,13 +290,6 @@ EOF
       ensure: 'present',
       content: {template: path.join(__dirname, '..', 'files', 'apache2.conf.template')}
     })
-//    .on('file:/etc/apache2/apache2.conf:changed', function () {
-//      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
-//      p2
-//      .service('apache2', {ensure: 'stopped'})
-//      .service('apache2', {ensure: 'running'})
-//      ;
-//    })
 
     .file('/etc/apache2/sites-available/wsgi-keystone.conf', {
       ensure: 'present',
@@ -285,28 +301,12 @@ EOF
       target: '/etc/apache2/sites-available/wsgi-keystone.conf'
     })
 
-//    .on('file:/etc/apache2/sites-enabled/wsgi-keystone.conf:changed', function () {
-//      console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
-//      p2
-//      .service('apache2', {ensure: 'stopped'})
-//      .service('apache2', {ensure: 'running', enabled: true})
-//      .command('rm -f /var/lib/keystone/keystone.db')
-//      ;
-//    })
 
     .service('apache2', {
       ensure: 'running',
       enabled: true,
       on: {
-//        'file:/etc/apache2/apache2.conf:changed': function () {
-//          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
-//          p2
-//          .service('apache2', {ensure: 'stopped'})
-//          .service('apache2', {ensure: 'running'})
-//          ;
-//        },
         'file:/etc/apache2/sites-enabled/wsgi-keystone.conf:changed': function () {
-          console.warn('!!!! in event handler:\nthis:', this, '\nargs:', arguments);
           p2
           .service('apache2', {ensure: 'stopped'})
           .service('apache2', {ensure: 'running'})
@@ -316,9 +316,45 @@ EOF
       }
     })
 
-    .set_env('OS_TOKEN', { value: '{{ f.openstack_os_token }}'})
-    .set_env('OS_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
-    .set_env('OS_IDENTITY_API_VERSION', { value: 3})
+    .source_env('/root/admin-openrc')
+
+    .command('get openstack token', {
+      cmd: 'openstack token issue -f json',
+      onlyif: function (f) {
+        return pfs.pExists(path.join('/', 'root', 'admin-openrc'))
+        .then(function (exists) {
+
+          if (!exists) {
+
+            // fall back to initial install token
+            p2
+            .pushSteps()
+            .set_env('OS_TOKEN', { value: '{{ f.openstack_os_token }}'})
+            .set_env('OS_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+            .set_env('OS_IDENTITY_API_VERSION', { value: 3})
+            .flattenSteps()
+            ;
+          }
+
+          return exists;
+        });
+      }
+    }, function (rc, stdout, stderr) {
+      var tok_obj = JSON.parse(stdout);
+
+      // Use provided fernet token
+      p2
+      .pushSteps()
+      //.set_env('OS_TOKEN', { value: tok_obj.id })
+      .set_env('OS_TOKEN', { ensure: 'absent' })
+      .set_env('OS_AUTH_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+      //.set_env('OS_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+      .set_env('OS_URL', { ensure: 'absent' })
+      .set_env('OS_IDENTITY_API_VERSION', { value: 3})
+      .flattenSteps()
+      ;
+
+    })
 
     .openstack_service('keystone', {
       description: 'OpenStack Identity',
@@ -398,16 +434,6 @@ EOF
       ensure: 'present'
     })
 
-    /*
-     * TODO:
-     *  http://docs.openstack.org/mitaka/install-guide-ubuntu/keystone-verify.html
-
-    For security reasons, disable the temporary authentication token mechanism:
-
-    Edit the /etc/keystone/keystone-paste.ini file and remove admin_token_auth from the [pipeline:public_api], [pipeline:admin_api], and [pipeline:api_v3] sections.
-
-    Unset the temporary OS_TOKEN and OS_URL environment variables:
-    */
 
     // Create client environment scripts
     .file('/root/admin-openrc', {
@@ -430,10 +456,42 @@ EOF
         demo_user_pass: opts.demo_user_pass
       }
     })
-    /*
-     * . admin-openrc
-     * openstack token issue
-     */
+
+    // remove admin_token_auth options for fernet tokens from now on
+    .file('/etc/keystone/keystone-paste.ini', {
+      ensure: 'present',
+      content: {template: path.join(__dirname, '..', 'files', 'keystone-paste.ini.template')}
+    })
+
+    // Need to remove old token prio to trying token issue for fernet
+    .set_env('OS_TOKEN', { ensure: 'absent' })
+    .set_env('OS_URL', { ensure: 'absent' })
+
+    .source_env('/root/admin-openrc')
+
+    // TODO: Clean this up as its a repeat of earlier
+    .command('get openstack token #2', {
+      cmd: 'openstack token issue -f json'
+    }, function (rc, stdout, stderr) {
+      if (rc !== 0) {
+        //console.error('openstack token #2 rc:', rc, 'stdout:', stdout, 'stderr:', stderr);
+        throw new Error(stderr);
+      }
+      var tok_obj = JSON.parse(stdout);
+
+      // Use provided fernet token
+      p2
+      .pushSteps()
+      //.set_env('OS_TOKEN', { value: tok_obj.id })
+      .set_env('OS_TOKEN', { ensure: 'absent' })
+      .set_env('OS_AUTH_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+      //.set_env('OS_URL', { value: 'http://{{ f.os_hostname }}:35357/v3'})
+      .set_env('OS_IDENTITY_API_VERSION', { value: 3})
+      .flattenSteps()
+      ;
+
+    })
+
 
 
     /////////////////////////////
@@ -499,6 +557,81 @@ EOF
       interface: 'admin',
       url: u.format('http://%s:9292', p2.facts.os_hostname),
       ensure: 'present'
+    })
+
+    .package('glance')
+
+    .file('/etc/glance/glance-api.conf', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'glance-api.conf.template')},
+      parms: {
+        hostname: p2.facts.os_hostname,
+        glance_dbpass: opts.glance_pass,
+        glance_user_pass: opts.glance_user_pass
+      }
+    })
+
+    .service('glance-api', {
+      ensure: 'running',
+      enabled: true,
+      on: {
+        'file:/etc/glance/glance-api.conf:changed': function () {
+          p2
+          .command('su -s /bin/sh -c "glance-manage db_sync" glance')
+          .service('glance-api', { ensure: 'stopped'})
+          .service('glance-api', { ensure: 'running'})
+          ;
+        }
+      }
+    })
+
+    .file('/etc/glance/glance-registry.conf', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'glance-registry.conf.template')},
+      parms: {
+        hostname: p2.facts.os_hostname,
+        glance_dbpass: opts.glance_pass,
+        glance_user_pass: opts.glance_user_pass
+      }
+    })
+
+    .service('glance-registry', {
+      ensure: 'running',
+      enabled: true,
+      on: {
+        'file:/etc/glance/glance-registry.conf:changed': function () {
+          p2
+          //.command('su -s /bin/sh -c "glance-manage db_sync" glance')
+          .service('glance-registry', { ensure: 'stopped'})
+          .service('glance-registry', { ensure: 'running'})
+          //.service('glance-api', { ensure: 'stopped'})
+          //.service('glance-api', { ensure: 'running'})
+          ;
+        }
+      }
+    })
+
+    // Download and create cirros image
+//    .command('wget http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img -O /tmp/cirros.img', {
+//      creates: '/tmp/cirros.img'
+//    })
+//
+//    .openstack_image('cirros', {
+//      ensure: 'absent'
+//    })
+//
+//    .openstack_image('cirros', {
+//      file: '/tmp/cirros.img',
+//      public: true
+//    })
+//
+//    .openstack_image('cirros', {
+//      ensure: 'absent'
+//    })
+
+    .openstack_image('cirros', {
+      url: 'http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img',
+      public: true
     })
 
     ;

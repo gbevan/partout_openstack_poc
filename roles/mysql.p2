@@ -108,7 +108,7 @@ p2
  */
 .role('mysql_grant', {
   p2: function (title, opts) {
-    console.log('mysql_grant opts:', opts);
+    //console.log('mysql_grant opts:', opts);
     var c;
 
     if (opts.connection) {
@@ -132,7 +132,7 @@ p2
     .then(function (check_res) {
       var rows = check_res[0],
           fields = check_res[1];
-      console.log('select rows:', rows.length);
+      //console.log('select rows:', rows.length);
 
       if (opts.ensure === 'present' && rows.length === 0) {
         return Q.nfcall(

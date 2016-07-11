@@ -17,6 +17,7 @@ p2
 /**
  * p2
  * .add_fact('fact_name', {
+ *   hidden: true|false, // hide value from log output
  *   file: filename,  // or
  *   value: value,    // or
  *   url: url,  // TODO, or
@@ -63,7 +64,7 @@ p2
         }
 
         p2.facts[title] = data;
-        console.info(u.format('Added fact "%s" = "%s"', title, data));
+        console.info(u.format('Added fact "%s" = "%s"', title, (opts.hidden ? '**********' : data)));
       } else {
         delete p2.facts[title];
       }

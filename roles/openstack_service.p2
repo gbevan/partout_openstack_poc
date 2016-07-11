@@ -39,6 +39,7 @@ p2
       var rc = res[0],
           stdout = res[1],
           stderr = res[2];
+      //console.log('openstack_service: show: rc:', rc, stdout, stderr);
 
       if (opts.ensure === 'present') {
         if (rc !== 0) {

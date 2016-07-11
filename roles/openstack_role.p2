@@ -62,15 +62,18 @@ p2
             'openstack role create "%s"',
             title
           ))
-
-          // TODO: Handle role assocs to projects/domains and users/groups separately
-          .command(u.format(
-            'openstack role add --project "%s" --user "%s" "%s"',
-            opts.project,
-            opts.user,
-            title
-          ));
+          ;
         }
+
+        // TODO: Handle role assocs to projects/domains and users/groups separately
+        p2
+        .command(u.format(
+          'openstack role add --project "%s" --user "%s" "%s"',
+          opts.project,
+          opts.user,
+          title
+        ))
+        ;
 
       } else if (opts.ensure === 'absent') {
         if (roles_byName[title]) {

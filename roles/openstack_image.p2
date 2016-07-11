@@ -1,0 +1,129 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var utils = new (p2.require('utils'))(),
+    u = require('util'),
+    fs = require('fs'),
+    path = require('path'),
+    heredoc = require('heredoc'),
+    uuid = require('uuid'),
+    Q = require('q'),
+    _ = require('lodash'),
+    tmp = require('tmp'),
+    download = require('download');
+
+p2
+
+/*
+ * .openstack_image('cirros', {
+ *   ensure: 'present|absent',
+ *   file: '/root/cirros.img', or
+ *   url: 'http://....',
+ *   disk_format: 'qcow2',
+ *   container_format: 'bare',
+ *   public: true
+ * })
+ */
+.role('openstack_image', {
+  facts: function (deferred, facts_so_far, title, opts) {
+    var facts = {};
+
+    deferred.resolve(facts);
+  },
+
+  p2: function (title, opts) {
+    var outer_deferred = Q.defer();
+
+    if (!opts.hasOwnProperty('ensure')) {
+      opts.ensure = 'present';
+    }
+
+    // get status
+    return utils.runCmd(u.format('openstack image list -f json'))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        return Q.reject(new Error('openstack image list failed'));
+      }
+      stdout = stdout.trim();
+
+      var images_list = JSON.parse((stdout || '[]')),
+          images_byName = {};
+      images_list.forEach(function (image) {
+        images_byName[image.Name] = image;
+      });
+
+      if (opts.ensure === 'present') {
+        if (!images_byName[title]) {
+          // create image
+          console.info('Creating openstack image ', title);
+
+          // TODO: if opts.url - download it first
+          var file_deferred = Q.defer();
+
+          if (opts.url) {
+            Q.nfcall(tmp.tmpName)
+            .then(function (tf) {
+              console.info('OpenStack Image downloading:', opts.url, '->', tf);
+              download(opts.url)
+              .on('end', function () {
+                console.log('End of url download stream, resolving:', tf);
+                file_deferred.resolve(tf);
+              })
+              .pipe(fs.createWriteStream(tf));
+            });
+
+          } else if (opts.file) {
+            file_deferred.resolve(opts.file);
+
+          } else {
+            file_deferred.resolve();
+          }
+
+
+          return file_deferred.promise
+          .then(function (file) {
+
+            p2
+            .command(u.format(
+              'openstack image create "%s" --file "%s" --disk-format %s --container-format %s %s',
+              title,
+              file,
+              (opts.disk_format ? opts.disk_format : 'qcow2'),
+              (opts.container_format ? opts.container_format : 'bare'),
+              (opts.public ? '--public' : '')
+            ));
+          });
+        }
+
+      } else if (opts.ensure === 'absent') {
+        if (images_byName[title]) {
+          // delete image
+          console.info('Deleting openstack image ', title);
+          p2
+//          .command(u.format(
+//            'openstack image set --disable "%s"',
+//            title
+//          ))
+          .command(u.format(
+            'openstack image delete "%s"',
+            title
+          ));
+        }
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+    });
+  }
+
+})
+
+;

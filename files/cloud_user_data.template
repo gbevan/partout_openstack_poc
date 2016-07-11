@@ -14,7 +14,7 @@ runcmd:
   - mkdir -p /opt/partout/agent
   - echo "192.168.0.64:/home/bev/Documents/Brackets/partout/agent  /opt/partout/agent nfs defaults,ro,nolock,intr 0 0" >> /etc/fstab
   - mount -a
-  - curl -sL https://deb.nodesource.com/setup_5.x | sudo -E bash -
+  - curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
   - apt-get install -y nodejs
   - cd /opt/partout/agent && bin/partout-agent -y --env=openstack --once
 

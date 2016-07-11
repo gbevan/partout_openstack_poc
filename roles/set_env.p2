@@ -7,7 +7,6 @@ module.paths = module.paths.concat(module.parent.paths);
 
 var Mustache = require('mustache'),
     console = require('better-console'),
-    mysql = require('mysql'),
     Q = require('q'),
     u = require('util'),
     pfs = new (p2.require('pfs'))();
@@ -28,6 +27,8 @@ p2
   p2: function (title, opts) {
     var deferred = Q.defer(),
         opts_deferred = Q.defer();
+
+    //console.warn('set_env: title:', title);
 
     if (!opts.ensure) {
       opts.ensure = (opts.value === undefined ? 'absent' :'present');

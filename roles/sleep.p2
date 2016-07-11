@@ -1,0 +1,36 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var Q = require('q'),
+    u = require('util');
+
+p2
+
+/**
+ * p2
+ * .sleep('title', {
+ *   seconds: 60
+ * })
+ *
+ * saves connection in p2._mysql_connections[title].
+ * Use hostname (e.g. p2.facts.os_hostname) for title and you
+ * can let later mysql_* calls default their connection.
+ */
+.role('sleep', {
+  p2: function (title, opts) {
+    var deferred = Q.defer();
+
+    console.info(new Date(), 'Sleeping for', opts.seconds, 'seconds:', title);
+    setTimeout(function () {
+      console.info(new Date(), 'Continuing after sleep:', title);
+      deferred.resolve();
+    }, 1000 * opts.seconds);
+
+    return deferred.promise;
+  }
+})
+;

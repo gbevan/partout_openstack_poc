@@ -1,0 +1,67 @@
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var console = require('better-console'),
+    Q = require('q'),
+    u = require('util'),
+    utils = new (p2.require('utils'))(),
+    pfs = new (p2.require('pfs'))();
+
+p2
+
+/**
+ * p2
+ * .source_env('/root/admin-openrc')
+ * Executes rc script, then imports any created
+ * evironment variables into current partout process environment.
+ */
+.role('source_env', {
+  p2: function (title, opts) {
+    var deferred = Q.defer(),
+        script = (opts && opts.cmd ? opts.cmd : title);
+
+    // test if source script exists
+    pfs.pExists(script)
+    .done(function (exists) {
+      if (!exists) {
+        console.warn('source script', script, 'does not exist, skipping');
+        deferred.resolve();
+        return;
+      }
+
+      var cmd = '. ' + script + '; env';
+
+      //console.log('in source_env cmd:', cmd);
+      p2
+      .command('Sourcing environment from ' + cmd, {
+        cmd: cmd
+      }, function (rc, stdout, stderr) {
+        if (rc !== 0) {
+          console.error(stderr);
+          throw new Error(stderr);
+        }
+        //console.info('Importing environment variables:\n' + stdout);
+        // TODO: parse env vars
+
+        var lines = utils.splitLines(stdout);
+        //console.log('lines:', lines);
+
+        lines.forEach(function (line) {
+          var assignment = line.split(/=/);
+          //console.info('Setting env:', assignment[0], '=', assignment[1]);
+          process.env[assignment[0]] = assignment[1];
+        });
+
+      });
+
+      deferred.resolve();
+    });
+
+    return deferred.promise;
+  }
+
+});
