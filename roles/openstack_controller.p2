@@ -1,3 +1,25 @@
+/*
+    Partout [Everywhere] - Policy-Based Configuration Management for the
+    Data-Driven-Infrastructure.
+
+    Copyright (C) 2016 Graham Lee Bevan <graham.bevan@ntlworld.com>
+
+    This file is part of Partout.
+
+    Partout is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 /*jslint node: true, nomen: true */
 'use strict';
 /*global p2*/
@@ -34,7 +56,8 @@ p2
  *   ip: 'contoller_ip_address',
  *   mysql_pass: 'password',
  *   rabbit_pass: 'password',
- *   keystone_pass: 'password'
+ *   keystone_pass: 'password',
+ *   nova_db_pass: 'password'
  * })
  */
 .role('openstack_controller', {
@@ -229,7 +252,6 @@ EOF
 
     // TODO: sysctl -w 'net.ipv4.ip_local_reserved_ports=35357'
 
-    // var admin_token = forge.util.bytesToHex(forge.random.getBytesSync(10));
 
     .file('/etc/init/keystone.override', {
       ensure: 'present',
@@ -244,6 +266,7 @@ EOF
 
     ///////////////////////////////////////////////////////////
     // Generate random admin token, if needed (initially)
+    // TODO: use forge instead - var admin_token = forge.util.bytesToHex(forge.random.getBytesSync(10));
     .command('openstack_os_token', {
       cmd: 'openssl rand -hex 10 > {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token; chmod 600 {{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token',
       creates: '{{{ f.cfg.PARTOUT_VARDIR }}}/openstack_os_token',
@@ -633,6 +656,133 @@ EOF
       url: 'http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img',
       public: true
     })
+
+
+    ///////////////////////////////////////
+    // COMPUTE
+
+    .mysql_database('nova_api', {
+      ensure: 'present',
+    })
+    .mysql_database('nova', {
+      ensure: 'present',
+    })
+
+    .mysql_grant('nova_api localhost', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'nova_api.*',
+      userspecs: {user: 'nova', host: 'localhost'},
+      identifiedby: opts.nova_db_pass
+    })
+    .mysql_grant('nova_api %', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'nova_api.*',
+      userspecs: {user: 'nova', host: '%'},
+      identifiedby: opts.nova_db_pass
+    })
+
+    .mysql_grant('nova localhost', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'nova.*',
+      userspecs: {user: 'nova', host: 'localhost'},
+      identifiedby: opts.nova_db_pass
+    })
+    .mysql_grant('nova %', {
+      ensure: 'present',
+      privileges: 'ALL PRIVILEGES',
+      privlevel: 'nova.*',
+      userspecs: {user: 'nova', host: '%'},
+      identifiedby: opts.nova_db_pass
+    })
+
+    .openstack_user('nova', {
+      password: opts.nova_user_pass,
+      domain: 'default',
+      ensure: 'present'
+    })
+
+    .openstack_role('admin', {
+      project: 'service',
+      user: 'nova',
+      ensure: 'present'
+    })
+
+    .openstack_service('nova', {
+      description: 'OpenStack Compute',
+      type: 'compute',
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/compute/public', {
+      region: 'RegionOne',
+      service_type: 'compute',
+      interface: 'public',
+      url: u.format('http://%s:8774/v2.1/%\\(tenant_id\\)s', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/compute/internal', {
+      region: 'RegionOne',
+      service_type: 'compute',
+      interface: 'internal',
+      url: u.format('http://%s:8774/v2.1/%\\(tenant_id\\)s', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+
+    .openstack_endpoint('RegionOne/compute/admin', {
+      region: 'RegionOne',
+      service_type: 'compute',
+      interface: 'admin',
+      url: u.format('http://%s:8774/v2.1/%\\(tenant_id\\)s', p2.facts.os_hostname),
+      ensure: 'present'
+    })
+
+    .package('nova-api')
+    .package('nova-conductor')
+    .package('nova-consoleauth')
+    .package('nova-novncproxy')
+    .package('nova-scheduler')
+
+    .file('/etc/nova/nova.conf', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'nova.conf.template')},
+      parms: {
+        nova_db_pass: opts.nova_db_pass,
+        nova_user_pass: opts.nova_user_pass,
+        rabbit_pass: opts.rabbit_pass
+      }
+    })
+
+    .on('file:/etc/nova/nova.conf:changed', function () {
+      p2
+      .command('populate nova api_db', {
+        cmd: heredoc(function () {/*
+          su -s /bin/sh -c "nova-manage api_db sync" nova
+        */}),
+        creates: '{{{ f.cfg.PARTOUT_VARDIR }}}/populated_nova_api_database'
+      })
+      .command('populate nova db', {
+        cmd: heredoc(function () {/*
+          su -s /bin/sh -c "nova-manage db sync" nova
+        */}),
+        creates: '{{{ f.cfg.PARTOUT_VARDIR }}}/populated_nova_database'
+      })
+      .service('nova-api', { ensure: 'stopped' })
+      .service('nova-consoleauth', { ensure: 'stopped' })
+      .service('nova-scheduler', { ensure: 'stopped' })
+      .service('nova-conductor', { ensure: 'stopped' })
+      .service('nova-novncproxy', { ensure: 'stopped' })
+      ;
+    })
+
+    .service('nova-api', { ensure: 'running' })
+    .service('nova-consoleauth', { ensure: 'running' })
+    .service('nova-scheduler', { ensure: 'running' })
+    .service('nova-conductor', { ensure: 'running' })
+    .service('nova-novncproxy', { ensure: 'running' })
 
     ;
   } // p2

@@ -1,3 +1,25 @@
+/*
+    Partout [Everywhere] - Policy-Based Configuration Management for the
+    Data-Driven-Infrastructure.
+
+    Copyright (C) 2016 Graham Lee Bevan <graham.bevan@ntlworld.com>
+
+    This file is part of Partout.
+
+    Partout is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 /*jslint node: true, nomen: true */
 'use strict';
 /*global p2*/
@@ -17,9 +39,10 @@ var controller_ip = '192.168.0.90',
 
 p2
 
-.include('roles/uvt.p2')
-.include('roles/openstack.p2')
-.include('roles/openstack_controller.p2')
+.include('roles/uvt')
+.include('roles/openstack')
+.include('roles/openstack_controller')
+.include('roles/openstack_compute')
 
 ////////////////////////////////////////////////////////////////////////////
 // manager 1
@@ -121,10 +144,15 @@ p2
 .node('controller1')
 .classify('openstack_controller')
 
+// controller class
+.node('compute1')
+.classify('openstack_compute')
+
 
 ////////////////////////////////////////////////////////////////////////////
 // Process classified roles
 .node(true)
+
 .file('/etc/hosts', {
   ensure: 'file',
   content: {template: path.join(__dirname, 'files', 'hosts.template')}
@@ -140,13 +168,17 @@ p2
   glance_pass: 'glancepass1',
   admin_user_pass: 'adminpass1',
   demo_user_pass: 'demopass1',
-  glance_user_pass: 'glancepass1'
+  glance_user_pass: 'glancepass1',
+
+  nova_db_pass: 'novadbpass1',
+  nova_user_pass: 'novapass1'
 })
+
+.openstack_compute()
 
 //.openstack_cinder()
 
 //.openstack_network()
 
-//.openstack_compute()
 
 ;
