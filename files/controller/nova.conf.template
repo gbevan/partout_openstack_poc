@@ -53,3 +53,18 @@ vncserver_proxyclient_address = $my_ip
 
 [glance]
 api_servers = http://{{ f.os_hostname }}:9292
+
+[neutron]
+url = http://{{ f.os_hostname }}:9696
+auth_url = http://{{ f.os_hostname }}:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = neutron
+password = {{ opts.parms.neutron_user_pass }}
+
+service_metadata_proxy = True
+# TODO: parameterise
+metadata_proxy_shared_secret = err_my_secret

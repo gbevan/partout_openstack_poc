@@ -40,7 +40,10 @@ p2
 /**
  * p2
  * .openstack_compute('compute', {
- *
+ *   ip: 'compute_ip_address',
+ *   controller_ip: 'controller_ip_address',
+ *   rabbit_pass: 'rabbit password',
+ *   nova_user_pass: 'nova user password'
  * })
  */
 .role('openstack_compute', {
@@ -50,8 +53,26 @@ p2
       return f.os_dist_id === 'ubuntu' && p2.hasClass('openstack_compute');
     })
 
+    .package('nova-compute')
 
+    .file('/etc/nova/nova.conf', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'compute', 'nova.conf.template')},
+      parms: {
+        controller_ip: opts.controller_ip,
+        nova_user_pass: opts.nova_user_pass,
+        rabbit_pass: opts.rabbit_pass,
+        virt_type: (p2.facts.cpuinfo.hw_accel_enabled ? 'kvm' : 'qemu')
+      }
+    })
 
+    .on('file:/etc/nova/nova.conf:changed', function () {
+      p2
+      .service('nova-compute', { ensure: 'stopped' })
+      ;
+    })
+
+    .service('nova-compute', { ensure: 'running' })
 
     ;
   }
