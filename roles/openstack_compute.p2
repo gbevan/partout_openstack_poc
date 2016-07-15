@@ -43,7 +43,8 @@ p2
  *   ip: 'compute_ip_address',
  *   controller_ip: 'controller_ip_address',
  *   rabbit_pass: 'rabbit password',
- *   nova_user_pass: 'nova user password'
+ *   nova_user_pass: 'nova user password',
+ *   neutron_user_pass: 'neutron user password'
  * })
  */
 .role('openstack_compute', {
@@ -61,6 +62,7 @@ p2
       parms: {
         controller_ip: opts.controller_ip,
         nova_user_pass: opts.nova_user_pass,
+        nova_neutron_pass: opts.neutron_user_pass,
         rabbit_pass: opts.rabbit_pass,
         virt_type: (p2.facts.cpuinfo.hw_accel_enabled ? 'kvm' : 'qemu')
       }
@@ -72,7 +74,41 @@ p2
       ;
     })
 
-    .service('nova-compute', { ensure: 'running' })
+
+    .package('neutron-linuxbridge-agent')
+
+    .file('/etc/neutron/neutron.conf', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'compute', 'neutron.conf.template')},
+      parms: {
+        controller_ip: opts.controller_ip,
+        //nova_user_pass: opts.nova_user_pass,
+        neutron_user_pass: opts.neutron_user_pass,
+        rabbit_pass: opts.rabbit_pass,
+        //virt_type: (p2.facts.cpuinfo.hw_accel_enabled ? 'kvm' : 'qemu')
+      }
+    })
+
+    .on('file:/etc/neutron/neutron.conf:changed', function () {
+      p2
+      .service('nova-compute', { ensure: 'stopped' })
+      .service('neutron-linuxbridge-agent', { ensure: 'stopped' })
+      ;
+    })
+
+    .file('/etc/neutron/plugins/ml2/linuxbridge_agent.ini', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'compute', 'linuxbridge_agent.ini.template')}
+    })
+
+    .on('file:/etc/neutron/plugins/ml2/linuxbridge_agent.ini:changed', function () {
+      p2
+      .service('neutron-linuxbridge-agent', { ensure: 'stopped' })
+      ;
+    })
+
+    .service('nova-compute', { ensure: 'running', enabled: true })
+    .service('neutron-linuxbridge-agent', { ensure: 'running', enabled: true })
 
     ;
   }

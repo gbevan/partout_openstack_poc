@@ -198,7 +198,8 @@ p2
   ip: compute_ip,
   controller_ip: controller_ip,
   rabbit_pass: 'rbpass1',
-  nova_user_pass: 'novapass1'
+  nova_user_pass: 'novapass1',
+  neutron_user_pass: 'neutronpass1'
 })
 
 //.openstack_cinder()

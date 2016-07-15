@@ -927,6 +927,22 @@ EOF
     .service('neutron-metadata-agent', { ensure: 'running', enabled: true})
     .service('neutron-l3-agent', { ensure: 'running', enabled: true})
 
+
+    //////////////////////////////////////////
+    // Horizon Dashboard
+
+    .package('openstack-dashboard')
+
+    .file('/etc/openstack-dashboard/local_settings.py', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'dashboard_local_settings_template.py')}
+    })
+    .on('file:/etc/openstack-dashboard/local_settings.py:changed', function () {
+      p2
+      .command('service apache2 reload')
+      ;
+    })
+
     ;
   } // p2
 }) // role openstack_controller

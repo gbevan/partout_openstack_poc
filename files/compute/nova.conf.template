@@ -50,3 +50,14 @@ api_servers = http://{{ opts.parms.controller_ip }}:9292
 
 [libvirt]
 virt_type = {{ opts.parms.virt_type }}
+
+[neutron]
+url = http://{{ opts.parms.controller_ip }}:9696
+auth_url = http://{{ opts.parms.controller_ip }}:35357
+auth_type = password
+project_domain_name = default
+user_domain_name = default
+region_name = RegionOne
+project_name = service
+username = neutron
+password = {{ opts.parms.neutron_user_pass }}
