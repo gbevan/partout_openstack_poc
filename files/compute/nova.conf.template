@@ -15,13 +15,13 @@ rpc_backend = rabbit
 
 auth_strategy = keystone
 
-my_ip = {{ f.os_nics.eth0.ipv4.address }}
+my_ip = {{ f.os_nics.br0.ipv4.address }}
 
 use_neutron = True
 firewall_driver = nova.virt.firewall.NoopFirewallDriver
 
 [oslo_messaging_rabbit]
-rabbit_host = {{ opts.parms.controller_ip }}
+rabbit_host = {{ opts.parms.rabbit_host }}
 rabbit_userid = openstack
 rabbit_password = {{ opts.parms.rabbit_pass }}
 
@@ -60,4 +60,5 @@ user_domain_name = default
 region_name = RegionOne
 project_name = service
 username = neutron
+#user-name = neutron
 password = {{ opts.parms.neutron_user_pass }}

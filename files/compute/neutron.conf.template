@@ -1432,7 +1432,7 @@ password = {{ opts.parms.neutron_user_pass }}
 # message (floating point value)
 #rpc_retry_delay = 0.25
 
-rabbit_host = {{ opts.parms.controller_ip }}
+rabbit_host = {{ opts.parms.rabbit_host }}
 rabbit_userid = openstack
 rabbit_password = {{ opts.parms.rabbit_pass }}
 

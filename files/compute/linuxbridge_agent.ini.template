@@ -137,7 +137,7 @@
 # appropriate interfaces on each agent. (list value)
 #physical_interface_mappings =
 
-physical_interface_mappings = provider:eth0
+physical_interface_mappings = provider:br0
 
 # List of <physical_network>:<physical_bridge> (list value)
 #bridge_mappings =
@@ -202,5 +202,5 @@ firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 #arp_responder = false
 
 enable_vxlan = True
-local_ip = {{ f.os_nics.eth0.ipv4.address }}
+local_ip = {{ f.os_nics.br0.ipv4.address }}
 l2_population = True

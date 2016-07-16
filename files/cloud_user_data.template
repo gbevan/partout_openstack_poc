@@ -1,7 +1,8 @@
 #cloud-config
 chpasswd: {expire: false}
 hostname: {{ opts.parms.hostname }}
-manage_etc_hosts: localhost
+#manage_etc_hosts: localhost
+manage_etc_hosts: false
 password: {{ opts.parms.password }}
 ssh_authorized_keys: [{{{ opts.parms.sshpubkeys }}}]
 ssh_pwauth: true
@@ -10,7 +11,12 @@ packages:
   - nfs-client
 
 runcmd:
-  - apt-get install -y nfs-client
+  - apt-get install -y nfs-client bridge-utils
+  - /sbin/ifdown eth0
+  - sed -i 's/auto eth0/auto br0/' /etc/network/interfaces
+  - sed -i 's/iface eth0/iface br0/' /etc/network/interfaces
+  - echo "  bridge_ports eth0" >> /etc/network/interfaces
+  - /sbin/ifup br0
   - mkdir -p /opt/partout/agent
   - echo "192.168.0.64:/home/bev/Documents/Brackets/partout/agent  /opt/partout/agent nfs defaults,ro,nolock,intr 0 0" >> /etc/fstab
   - mount -a

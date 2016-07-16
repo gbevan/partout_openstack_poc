@@ -138,7 +138,7 @@
 #physical_interface_mappings =
 
 #physical_interface_mappings = provider:PROVIDER_INTERFACE_NAME
-physical_interface_mappings = provider:eth0
+physical_interface_mappings = provider:br0
 
 # List of <physical_network>:<physical_bridge> (list value)
 #bridge_mappings =
@@ -196,7 +196,7 @@ enable_vxlan = True
 #local_ip = <None>
 
 #local_ip = OVERLAY_INTERFACE_IP_ADDRESS
-local_ip = {{ f.os_nics.eth0.ipv4.address }}
+local_ip = {{ f.os_nics.br0.ipv4.address }}
 
 # Extension to use alongside ml2 plugin's l2population mechanism driver. It
 # enables the plugin to populate VXLAN forwarding table. (boolean value)

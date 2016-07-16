@@ -62,7 +62,8 @@ p2
       parms: {
         controller_ip: opts.controller_ip,
         nova_user_pass: opts.nova_user_pass,
-        nova_neutron_pass: opts.neutron_user_pass,
+        neutron_user_pass: opts.neutron_user_pass,
+        rabbit_host: opts.rabbit_host,
         rabbit_pass: opts.rabbit_pass,
         virt_type: (p2.facts.cpuinfo.hw_accel_enabled ? 'kvm' : 'qemu')
       }
@@ -84,6 +85,7 @@ p2
         controller_ip: opts.controller_ip,
         //nova_user_pass: opts.nova_user_pass,
         neutron_user_pass: opts.neutron_user_pass,
+        rabbit_host: opts.rabbit_host,
         rabbit_pass: opts.rabbit_pass,
         //virt_type: (p2.facts.cpuinfo.hw_accel_enabled ? 'kvm' : 'qemu')
       }
