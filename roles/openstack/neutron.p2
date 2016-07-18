@@ -1,0 +1,389 @@
+/*
+    Partout [Everywhere] - Policy-Based Configuration Management for the
+    Data-Driven-Infrastructure.
+
+    Copyright (C) 2016 Graham Lee Bevan <graham.bevan@ntlworld.com>
+
+    This file is part of Partout.
+
+    Partout is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*jslint node: true, nomen: true */
+'use strict';
+/*global p2*/
+
+// make parent node_modules available to sync'd manifest
+module.paths = module.paths.concat(module.parent.paths);
+
+var console = require('better-console'),
+    utils = new (p2.require('utils'))(),
+    u = require('util'),
+    fs = require('fs'),
+    path = require('path'),
+    heredoc = require('heredoc'),
+    Q = require('q'),
+    _ = require('lodash');
+
+p2
+
+/**
+ * .neutron_net('demo-net', {
+ *   router_external: true,
+ *   provider_physical_network: 'provider',
+ *   provider_network_type: 'flat',
+ *   shared: true,
+ *   ensure: 'present|absent'
+ * })
+ */
+// neutron net-create ext-net --router:external --provider:physical_network provider --provider:network_type flat --shared
+.role('neutron_net', {
+  p2: function (title, opts) {
+    return utils.runCmd(u.format('neutron net-list --format json'))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        return Q.reject(new Error('neutron net-list failed, stderr:', stderr));
+      }
+
+      var net_list = JSON.parse(stdout || '[]'),
+          net_byName = {};
+      net_list.forEach(function (net) {
+        net_byName[net.name] = net;
+      });
+
+      if (opts.ensure === 'present') {
+        if (!net_byName[title]) {
+          console.info('Creating neutron net', title);
+          p2
+          .command(u.format(
+            'neutron net-create %s %s %s %s %s',
+            title,
+            (opts.router_external ? '--router:external' : ''),
+            (opts.provider_physical_network ? '--provider:physical_network ' + opts.provider_physical_network : ''),
+            (opts.provider_network_type ? '--provider:network_type ' + opts.provider_network_type : ''),
+            (opts.shared ? '--shared' : '')
+          ));
+        }
+        return Q.resolve();
+
+      } else if (opts.ensure ==='absent') {
+        if (net_byName[title]) {
+          console.info('Deleting neutron net', title);
+          p2
+          .command(u.format(
+            'neutron net-delete %s',
+            title
+          ));
+        }
+        return Q.resolve();
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+
+    })
+    ;
+  }
+})
+
+/**
+ * .neutron_subnet('ext-subnet', {
+ *   network: 'ext-net',
+ *   allocation_pool: 'start=192.168.0.200,end=192.168.0.254',
+ *   disable_dhcp: true|false,
+ *   gateway: '192.168.0.1',
+ *   cidr: '192.168.0.0/24',
+ *   ensure: 'present|absent'
+ * })
+ */
+// neutron subnet-create ext-net --name ext-subnet --allocation-pool start=192.168.0.200,end=192.168.0.254 --disable-dhcp --gateway 192.168.0.1 192.168.0.0/24
+.role('neutron_subnet', {
+  p2: function (title, opts) {
+
+    return utils.runCmd(u.format('neutron subnet-list --format json'))
+    .then(function (res) {
+      console.log('res:', res);
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        return Q.reject(new Error('neutron subnet-list failed, stderr:', stderr));
+      }
+
+      var subnet_list = JSON.parse(stdout || '[]'),
+          subnet_byName = {};
+      subnet_list.forEach(function (subnet) {
+        subnet_byName[subnet.name] = subnet;
+      });
+
+      if (opts.ensure === 'present') {
+        if (!subnet_byName[title]) {
+          console.info('Creating neutron subnet', title);
+          p2
+          .command(u.format(
+            'neutron subnet-create %s --name %s %s %s %s %s',
+            opts.network,
+            title,
+            (opts.allocation_pool ? '--allocation-pool ' + opts.allocation_pool : ''),
+            (opts.disable_dhcp ? '--disable-dhcp' : ''),
+            (opts.gateway ? '--gateway ' + opts.gateway : ''),
+            opts.cidr
+          ))
+          ;
+          return Q.resolve('after neutron subnet create');
+        }
+        return Q.resolve();
+
+      } else if (opts.ensure === 'absent') {
+        console.log('neutron_subnet absent:', title);
+        if (subnet_byName[title]) {
+          console.info('Deleting neutron subnet', title);
+
+          p2
+          .command(u.format(
+            'neutron subnet-delete %s',
+            title
+          ))
+          ;
+          return Q.resolve('after neutron subnet delete');
+        }
+        return Q.resolve();
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+
+    })
+    ;
+
+  }
+})
+
+/**
+ * .neutron_router('ext-router', {
+ *   ensure: 'present|absent'
+ * })
+ */
+// neutron router-create ext-router
+.role('neutron_router', {
+  p2: function (title, opts) {
+    return utils.runCmd(u.format('neutron router-list --format json'))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        return Q.reject(new Error('neutron router-list failed, stderr:', stderr));
+      }
+
+      var router_list = JSON.parse(stdout || '[]'),
+          router_byName = {};
+      router_list.forEach(function (router) {
+        router_byName[router.name] = router;
+      });
+
+      if (opts.ensure === 'present') {
+        if (!router_byName[title]) {
+          console.info('Creating neutron router', title);
+          p2
+          .command(u.format(
+            'neutron router-create %s',
+            title
+          ));
+        }
+        return Q.resolve();
+
+      } else if (opts.ensure ==='absent') {
+        if (router_byName[title]) {
+          console.info('Deleting neutron router', title);
+          p2
+          .command(u.format(
+            'neutron router-delete %s',
+            title
+          ));
+        }
+        return Q.resolve();
+
+      } else {
+        return Q.reject(new Error('Invalid ensure'));
+      }
+
+    })
+    ;
+  }
+})
+
+/**
+ * .neutron_router_gateway('ext-router', {
+ *   external_network: 'ext-net',
+ *   ensure: 'present|absent'
+ * })
+ */
+// neutron router-gateway-set ext-router ext-net
+// neutron router-gateway-clear ext-router
+.role('neutron_router_gateway', {
+  p2: function (title, opts) {
+    return utils.runCmd(u.format('neutron router-show %s --format json', title))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        //return Q.reject(new Error('neutron router-show for ' + title + ' failed, stderr:', stderr));
+        return Q.resolve();
+      }
+
+      var router = JSON.parse(stdout || '{}'),
+          external_gateway_info = router.external_gateway_info,
+          ext_deferred = Q.defer();
+
+      if (external_gateway_info && external_gateway_info.network_id) {
+        utils.runCmd(u.format('neutron net-show %s --format json', external_gateway_info.network_id))
+        .then(function (res) {
+          var rc = res[0],
+              stdout = res[1],
+              stderr = res[2];
+
+          if (rc !== 0) {
+            //return Q.reject(new Error('neutron net-show for ' + external_gateway_info.network_id + ' failed, stderr:', stderr));
+            ext_deferred.resolve();
+            return;
+          }
+
+          var net = JSON.parse(stdout || '{}');
+          ext_deferred.resolve(net);
+        });
+      } else {
+        ext_deferred.resolve();
+      }
+
+      return ext_deferred.promise
+      .then(function(net) {
+        if (opts.ensure === 'present') {
+          if (!net) {
+            p2
+            .command(u.format('neutron router-gateway-set %s %s', title, opts.external_network))
+            ;
+            return Q.resolve();
+          }
+
+          if (net.name === opts.external_network) {
+            return Q.resolve();
+          }
+
+          p2
+          .command(u.format('neutron router-gateway-clear %s', title))
+          .command(u.format('neutron router-gateway-set %s %s', title, opts.external_network))
+          ;
+          return Q.resolve();
+
+        } else if (opts.ensure ==='absent') {
+          p2
+          .command(u.format('neutron router-gateway-clear %s', title))
+          ;
+          return Q.resolve();
+
+        } else {
+          return Q.reject(new Error('Invalid ensure'));
+        }
+      });
+
+    })
+    ;
+  }
+})
+
+/**
+ * .neutron_router_interface('ext-router', {
+ *   internal_subnet: 'demo-subnet',
+ *   ensure: 'present|absent'
+ * })
+ */
+// neutron router-port-list ext-router --format json # fixed_ips.subnet_id
+// neutron subnet-show demo-subnet # -> id
+// neutron router-interface-add ext-router demo-subnet
+// neutron router-interface-delete ext-router demo-subnet
+.role('neutron_router_interface', {
+  p2: function (title, opts) {
+    return utils.runCmd(u.format('neutron router-port-list %s --format json', title))
+    .then(function (res) {
+      var rc = res[0],
+          stdout = res[1],
+          stderr = res[2];
+
+      if (rc !== 0) {
+        //return Q.reject(new Error('neutron router-port-list for ' + title + ' failed, stderr:', stderr));
+        return Q.resolve();
+      }
+
+      var router_port_list = JSON.parse(stdout || '[]'),
+          int_deferred = Q.defer();
+
+      return utils.runCmd(u.format('neutron subnet-show %s --format json', opts.internal_subnet))
+      .then(function (res) {
+        var rc = res[0],
+            stdout = res[1],
+            stderr = res[2];
+
+        if (rc !== 0) {
+          //return Q.reject(new Error('neutron subnet-show for ' + opts.internal_subnet + ' failed, stderr:', stderr));
+          return Q.resolve();
+        }
+
+        var subnet = JSON.parse(stdout || '{}');
+
+        router_port_list.forEach(function (rp) {
+          if (rp.fixed_ips && rp.fixed_ips.subnet_id && rp.fixed_ips.subnet_id === subnet.id) {
+            return subnet;
+          }
+        });
+        return Q.resolve();
+      })
+      .then(function (subnet) {
+        if (opts.ensure === 'present') {
+          if (!subnet) {
+            p2
+            .command(u.format('neutron router-interface-add %s %s', title, opts.internal_subnet))
+            ;
+          }
+          return Q.resolve();
+
+        } else if (opts.ensure ==='absent') {
+          if (subnet) {
+            p2
+            .command(u.format('neutron router-interface-delete %s %s', title, opts.internal_subnet))
+            ;
+          }
+          return Q.resolve();
+
+        } else {
+          return Q.reject(new Error('Invalid ensure'));
+        }
+      });
+
+    })
+    ;
+  }
+})
+
+
+
+;

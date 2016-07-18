@@ -215,7 +215,7 @@ p2
       // create user_data file from template
       .file(cloud_user_data_file, {
         ensure: 'file',
-        content: {template: path.join(__dirname, '..', 'files', 'cloud_user_data.template')},
+        content: {template: path.join(__dirname, '..', 'files', 'cloud_user_data.template.yaml')},
         parms: {
           hostname: title,
           password: opts.password,
@@ -226,7 +226,7 @@ p2
       // create meta_data file from template
       .file(cloud_meta_data_file, {
         ensure: 'file',
-        content: {template: path.join(__dirname, '..', 'files', 'cloud_meta_data.template')},
+        content: {template: path.join(__dirname, '..', 'files', 'cloud_meta_data.template.yaml')},
         parms: {
           instance_uuid: uuid.v1(),
           ipaddr: opts.ipaddr,

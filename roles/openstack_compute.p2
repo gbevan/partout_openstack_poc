@@ -80,7 +80,7 @@ p2
 
     .file('/etc/neutron/neutron.conf', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'compute', 'neutron.conf.template')},
+      content:{template: path.join(__dirname, '..', 'files', 'compute', 'neutron_template.conf')},
       parms: {
         controller_ip: opts.controller_ip,
         //nova_user_pass: opts.nova_user_pass,
@@ -100,7 +100,7 @@ p2
 
     .file('/etc/neutron/plugins/ml2/linuxbridge_agent.ini', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'compute', 'linuxbridge_agent.ini.template')}
+      content:{template: path.join(__dirname, '..', 'files', 'compute', 'linuxbridge_agent_template.ini')}
     })
 
     .on('file:/etc/neutron/plugins/ml2/linuxbridge_agent.ini:changed', function () {

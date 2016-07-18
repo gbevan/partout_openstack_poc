@@ -76,7 +76,7 @@ p2
       if (opts.ensure === 'present') {
         if (!roles_byName[title]) {
           // create role
-          console.info('Creating openstack role ', title);
+          console.info('Creating openstack role', title);
 
           // openstack role create --domain default --password ******** admin
           p2
@@ -87,20 +87,99 @@ p2
           ;
         }
 
-        // TODO: Handle role assocs to projects/domains and users/groups separately
-        p2
-        .command(u.format(
-          'openstack role add --project "%s" --user "%s" "%s"',
-          opts.project,
-          opts.user,
-          title
-        ))
-        ;
+        return utils.runCmd(u.format('openstack role show %s --format json', title))
+        .then(function (res) {
+          var rc = res[0],
+              stdout = res[1],
+              stderr = res[2];
+
+          if (rc !== 0) {
+            return Q.reject(new Error('openstack role show ' + title + ' failed'));
+          }
+
+          var role = JSON.parse(stdout || '{}');
+
+          if (!role.id) {
+            return Q.reject(new Error('Failed to get role ' + title));
+          }
+
+          return utils.runCmd(u.format('openstack user show %s --format json', opts.user))
+          .then(function (res) {
+            var rc = res[0],
+                stdout = res[1],
+                stderr = res[2];
+
+            if (rc !== 0) {
+              return Q.reject(new Error('openstack user show ' + opts.user + ' failed'));
+            }
+
+            var user = JSON.parse(stdout || '{}');
+
+            if (!user.id) {
+              return Q.reject(new Error('Failed to get user ' + opts.user));
+            }
+
+            return utils.runCmd(u.format('openstack project show %s --format json', opts.project))
+            .then(function (res) {
+              var rc = res[0],
+                  stdout = res[1],
+                  stderr = res[2];
+
+              if (rc !== 0) {
+                return Q.reject(new Error('openstack project show ' + opts.project + ' failed'));
+              }
+
+              var project = JSON.parse(stdout || '{}');
+
+              if (!project.id) {
+                return Q.reject(new Error('Failed to get project ' + opts.project));
+              }
+
+              return utils.runCmd('openstack role assignment list --format json')
+              .then(function (res) {
+                var rc = res[0],
+                    stdout = res[1],
+                    stderr = res[2];
+
+                if (rc !== 0) {
+                  return Q.reject(new Error('openstack role assignment list failed'));
+                }
+
+                var role_assignments_list = JSON.parse(stdout || '[]'),
+                    already_exists = false;
+
+                role_assignments_list.forEach(function (assignment) {
+                  //console.log('assignment checking:', assignment.Role, assignment.User, assignment.Project);
+                  //console.log('role:', role.name, role.id);
+                  //console.log('user:', user.name, user.id);
+                  //console.log('project:', project.name, project.id);
+                  if (assignment.Role === role.id &&
+                     assignment.Project === project.id &&
+                     assignment.User === user.id) {
+                    //console.warn('assignment already exists, skipping:', assignment, role, user, project);
+                    already_exists = true;
+                  }
+                });
+
+                if (!already_exists) {
+                  p2
+                  .command(u.format(
+                    'openstack role add --project "%s" --user "%s" "%s"',
+                    opts.project,
+                    opts.user,
+                    title
+                  ))
+                  ;
+                }
+              }); // role assignment list
+            }); // project show
+          }); // user show
+        }); // role show
 
       } else if (opts.ensure === 'absent') {
         if (roles_byName[title]) {
           // delete role
-          console.info('Deleting openstack role ', title);
+          console.info('Deleting openstack role', title);
           p2
           .command(u.format(
             'openstack role delete %s"',

@@ -44,6 +44,7 @@ p2
 .include('roles/openstack')
 .include('roles/openstack_controller')
 .include('roles/openstack_compute')
+.include('roles/openstack/neutron')
 
 ////////////////////////////////////////////////////////////////////////////
 // manager 1
@@ -75,12 +76,12 @@ p2
 .uvt_kvm('controller1', {
   ensure: 'absent'
 })
-.uvt_kvm('network1', {
-  ensure: 'absent'
-})
-.uvt_kvm('cinder1', {
-  ensure: 'absent'
-})
+//.uvt_kvm('network1', {
+//  ensure: 'absent'
+//})
+//.uvt_kvm('cinder1', {
+//  ensure: 'absent'
+//})
 
 
 /*
@@ -143,6 +144,18 @@ p2
   }
 })
 
+.file('/etc/rc.local', {
+  ensure: 'file',
+  content: {template: path.join(__dirname, 'files', 'compute', 'rc.local_template.sh')},
+  mode: '0755'
+})
+
+// create veth? pair???
+.command('ip link add veth0 type veth peer name veth1; brctl addif br0 veth0; ip link set dev veth0 up; ip link set dev veth1 up', {
+  onlyif: '!(ip link | grep veth0)'
+})
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -160,6 +173,12 @@ p2
 // controller class
 .node('controller1')
 .classify('openstack_controller')
+.file('/etc/rc.local', {
+  ensure: 'file',
+  content: {template: path.join(__dirname, 'files', 'controller', 'rc.local_template.sh')},
+  mode: '0755'
+})
+.command('echo "1" > /proc/sys/net/ipv4/ip_forward')
 
 // controller class
 .node('compute1')
@@ -207,5 +226,100 @@ p2
 
 //.openstack_network()
 
+////////////////////////////////////////////////////////////////////////////
+// Networks
+
+// on controller
+.node('controller1')
+
+// delete all networks etc for test
+//.source_env('/root/demo-openrc')
+// TODO: floatingip may need deleting
+//.neutron_router_interface('ext-router', {
+//  internal_subnet: 'demo-subnet',
+//  ensure: 'absent'
+//})
+//.neutron_router_gateway('ext-router', {
+//  external_network: 'ext-net',
+//  ensure: 'absent'
+//})
+//.neutron_router('ext-router', {
+//  ensure: 'absent'
+//})
+//.neutron_subnet('demo-subnet', {
+//  ensure: 'absent'
+//})
+//.neutron_net('demo-net', {
+//  ensure: 'absent'
+//})
+//.source_env('/root/admin-openrc')
+//.neutron_subnet('ext-subnet', {
+//  ensure: 'absent'
+//})
+//.neutron_net('ext-net', {
+//  ensure: 'absent'
+//})
+
+
+/////////////////
+.source_env('/root/admin-openrc')
+
+// neutron net-create ext-net --router:external --provider:physical_network provider --provider:network_type flat --shared
+.neutron_net('ext-net', {
+  router_external: true,
+  provider_physical_network: 'provider',
+  provider_network_type: 'flat',
+  shared: true,
+  ensure: 'present'
+})
+
+// neutron subnet-create ext-net --name ext-subnet --allocation-pool start=192.168.0.200,end=192.168.0.254 --disable-dhcp --gateway 192.168.0.1 192.168.0.0/24
+.neutron_subnet('ext-subnet', {
+  network: 'ext-net',
+  allocation_pool: 'start=192.168.0.200,end=192.168.0.254',
+  disable_dhcp: true,
+  gateway: '192.168.0.1',
+  cidr: '192.168.0.0/24',
+  ensure: 'present'
+})
+
+// >>> as demo
+.source_env('/root/demo-openrc')
+
+// neutron net-create demo-net
+.neutron_net('demo-net', {
+  ensure: 'present'
+})
+
+// neutron subnet-create demo-net 172.19.0.0/24 --name demo-subnet --gateway 172.19.0.1
+// TODO: --dns-nameserver ????
+.neutron_subnet('demo-subnet', {
+  network: 'demo-net',
+  gateway: '172.19.0.1',
+  cidr: '172.19.0.0/24',
+  ensure: 'present'
+})
+
+// neutron router-create ext-router
+.neutron_router('ext-router', {
+  ensure: 'present'
+})
+
+// provider:br0|eth0 -> loose net connection >>>
+//   using veth1 fixes it
+// neutron router-gateway-set ext-router ext-net
+.neutron_router_gateway('ext-router', {
+  external_network: 'ext-net',
+  ensure: 'present'
+})
+
+// neutron router-interface-add ext-router demo-subnet
+.neutron_router_interface('ext-router', {
+  internal_subnet: 'demo-subnet',
+  ensure: 'present'
+})
+
+// see external ip assigned to ext-router
+// neutron router-show ext-router
 
 ;

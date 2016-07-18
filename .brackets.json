@@ -6,6 +6,7 @@
     }
   },
   "language.fileExtensions": {
-    "p2": "javascript"
+    "p2": "javascript",
+    "conf": "properties"
   }
 }

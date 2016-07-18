@@ -57,7 +57,7 @@ p2
 
       var cmd = '. ' + script + '; env';
 
-      //console.log('in source_env cmd:', cmd);
+      console.log('in source_env cmd:', cmd);
       p2
       .command('Sourcing environment from ' + cmd, {
         cmd: cmd

@@ -76,6 +76,20 @@ p2
 
 
     /////////////////////////////
+    // sysctl settings
+    .file('/etc/sysctl.d/98-reserved-ports.conf', {
+      ensure: 'present',
+      content: {template: path.join(__dirname, '..', 'files', 'controller', 'reserved-ports.conf')}
+    })
+
+    .on('file:/etc/sysctl.d/98-reserved-ports.conf:changed', function () {
+      p2
+      .command('sysctl --system')
+      ;
+    })
+
+
+    /////////////////////////////
     // MariaDB/MySQL
 
     // TODO: Passing configs for silent installs needs to be supported by package module
@@ -871,7 +885,7 @@ EOF
 
     .file('/etc/neutron/neutron.conf', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'controller', 'neutron.conf.template')},
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'neutron_template.conf')},
       parms: {
         neutron_db_pass: opts.neutron_db_pass,
         neutron_user_pass: opts.neutron_user_pass,
@@ -882,22 +896,22 @@ EOF
 
     .file('/etc/neutron/plugins/ml2/ml2_conf.ini', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'controller', 'ml2_conf.ini.template')}
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'ml2_conf_template.ini')}
     })
 
     .file('/etc/neutron/plugins/ml2/linuxbridge_agent.ini', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'controller', 'linuxbridge_agent.ini.template')}
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'linuxbridge_agent_template.ini')}
     })
 
     .file('/etc/neutron/l3_agent.ini', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'controller', 'l3_agent.ini.template')}
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'l3_agent_template.ini')}
     })
 
     .file('/etc/neutron/dhcp_agent.ini', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'controller', 'dhcp_agent.ini.template')}
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'dhcp_agent_template.ini')}
     })
 
     .command('populate neutron db', {
