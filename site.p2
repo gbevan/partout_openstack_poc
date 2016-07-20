@@ -73,7 +73,7 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-.uvt_kvm('controller1', {
+.uvt_kvm('Remove controller1', {
   ensure: 'absent'
 })
 //.uvt_kvm('network1', {
@@ -87,7 +87,7 @@ p2
 /*
  * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
  */
-.uvt_kvm('controller1', {
+.uvt_kvm('Create controller1', {
   //password: '******',
   release: 'trusty',
   bridge: 'br0',
