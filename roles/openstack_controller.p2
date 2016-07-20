@@ -769,12 +769,13 @@ EOF
 
     .file('/etc/nova/nova.conf', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'controller', 'nova.conf.template')},
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'nova_template.conf')},
       parms: {
         nova_db_pass: opts.nova_db_pass,
         nova_user_pass: opts.nova_user_pass,
         neutron_user_pass: opts.neutron_user_pass,
-        rabbit_pass: opts.rabbit_pass
+        rabbit_pass: opts.rabbit_pass,
+        metadata_secret: opts.metadata_secret
       }
     })
 
@@ -912,6 +913,14 @@ EOF
     .file('/etc/neutron/dhcp_agent.ini', {
       ensure: 'present',
       content:{template: path.join(__dirname, '..', 'files', 'controller', 'dhcp_agent_template.ini')}
+    })
+
+    .file('/etc/neutron/metadata_agent.ini', {
+      ensure: 'present',
+      content:{template: path.join(__dirname, '..', 'files', 'controller', 'metadata_agent_template.ini')},
+      parms: {
+        metadata_secret: opts.metadata_secret
+      }
     })
 
     .command('populate neutron db', {

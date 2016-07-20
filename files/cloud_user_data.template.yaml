@@ -6,6 +6,7 @@ manage_etc_hosts: false
 password: {{ opts.parms.password }}
 ssh_authorized_keys: [{{{ opts.parms.sshpubkeys }}}]
 ssh_pwauth: true
+timezone: Europe/London
 
 packages:
   - nfs-client

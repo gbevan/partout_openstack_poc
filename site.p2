@@ -73,7 +73,7 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-.uvt_kvm('Remove controller1', {
+.uvt_kvm('controller1', {
   ensure: 'absent'
 })
 //.uvt_kvm('network1', {
@@ -87,7 +87,7 @@ p2
 /*
  * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
  */
-.uvt_kvm('Create controller1', {
+.uvt_kvm('controller1', {
   //password: '******',
   release: 'trusty',
   bridge: 'br0',
@@ -208,6 +208,8 @@ p2
 
   nova_db_pass: 'novadbpass1',
   nova_user_pass: 'novapass1',
+
+  metadata_secret: 'META_SECRET',
 
   neutron_db_pass: 'neutrondbpass1',
   neutron_user_pass: 'neutronpass1'

@@ -58,7 +58,7 @@ p2
 
     .file('/etc/nova/nova.conf', {
       ensure: 'present',
-      content:{template: path.join(__dirname, '..', 'files', 'compute', 'nova.conf.template')},
+      content:{template: path.join(__dirname, '..', 'files', 'compute', 'nova_template.conf')},
       parms: {
         controller_ip: opts.controller_ip,
         nova_user_pass: opts.nova_user_pass,

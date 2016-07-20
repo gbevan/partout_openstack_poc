@@ -348,14 +348,23 @@ p2
           return Q.resolve();
         }
 
-        var subnet = JSON.parse(stdout || '{}');
+        var subnet = JSON.parse(stdout || '{}'),
+            subnet_deferred = Q.defer(),
+            matched_subnet;
 
         router_port_list.forEach(function (rp) {
-          if (rp.fixed_ips && rp.fixed_ips.subnet_id && rp.fixed_ips.subnet_id === subnet.id) {
-            return subnet;
+
+          // rp.fixed_ips is returned as a string (holding json)
+          var rp_fixed_ips = JSON.parse(rp.fixed_ips || '{}');
+
+          if (rp_fixed_ips && rp_fixed_ips.subnet_id && rp_fixed_ips.subnet_id === subnet.id) {
+            if (!matched_subnet) {
+              matched_subnet = subnet;
+            }
           }
         });
-        return Q.resolve();
+        subnet_deferred.resolve(matched_subnet);
+        return subnet_deferred.promise;
       })
       .then(function (subnet) {
         if (opts.ensure === 'present') {
