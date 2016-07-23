@@ -37,11 +37,6 @@ var console = require('better-console'),
 p2
 
 // TODO: move roles into partout itself
-.include('roles/mysql')
-.include('roles/add_fact')
-.include('roles/set_env')
-.include('roles/source_env')
-.include('roles/sleep')
 .include('roles/openstack_service')
 .include('roles/openstack_endpoint')
 .include('roles/openstack_domain')

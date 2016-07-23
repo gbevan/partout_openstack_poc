@@ -40,7 +40,6 @@ var controller_ip = '192.168.0.90',
 
 p2
 
-.include('roles/uvt')
 .include('roles/openstack')
 .include('roles/openstack_controller')
 .include('roles/openstack_compute')

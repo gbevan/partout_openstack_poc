@@ -247,12 +247,11 @@ p2
           stderr = res[2];
 
       if (rc !== 0) {
-        //return Q.reject(new Error('neutron router-show for ' + title + ' failed, stderr:', stderr));
         return Q.resolve();
       }
 
       var router = JSON.parse(stdout || '{}'),
-          external_gateway_info = router.external_gateway_info,
+          external_gateway_info = (router.external_gateway_info ? JSON.parse(router.external_gateway_info) : null),
           ext_deferred = Q.defer();
 
       if (external_gateway_info && external_gateway_info.network_id) {
@@ -263,13 +262,15 @@ p2
               stderr = res[2];
 
           if (rc !== 0) {
-            //return Q.reject(new Error('neutron net-show for ' + external_gateway_info.network_id + ' failed, stderr:', stderr));
             ext_deferred.resolve();
             return;
           }
 
           var net = JSON.parse(stdout || '{}');
           ext_deferred.resolve(net);
+        })
+        .done(null, function (err) {
+          ext_deferred.reject(err);
         });
       } else {
         ext_deferred.resolve();
@@ -304,10 +305,15 @@ p2
         } else {
           return Q.reject(new Error('Invalid ensure'));
         }
+      })
+      .done(null, function (err) {
+        return Q.reject(err);
       });
 
     })
-    ;
+    .done(null, function (err) {
+      return Q.reject(err);
+    });
   }
 })
 
