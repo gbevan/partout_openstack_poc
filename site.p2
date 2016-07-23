@@ -40,10 +40,8 @@ var controller_ip = '192.168.0.90',
 
 p2
 
-.include('roles/openstack')
-.include('roles/openstack_controller')
-.include('roles/openstack_compute')
-.include('roles/openstack/neutron')
+//.include('roles/openstack')
+
 
 ////////////////////////////////////////////////////////////////////////////
 // manager 1
@@ -59,7 +57,6 @@ p2
   content: {template: path.join(__dirname, 'files', 'interfaces_manager1')}
 //})
 }, function (changed) {
-  console.log('+++ changed:', changed);
   if (changed) {
     console.warn('reboot needed');
     process.exit(0);
@@ -136,7 +133,6 @@ p2
   ensure: 'file',
   content: {template: path.join(__dirname, 'files', 'interfaces_compute1')}
 }, function (changed) {
-  console.log('+++ changed:', changed);
   if (changed) {
     console.warn('reboot needed');
     process.exit(0);
