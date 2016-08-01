@@ -27,7 +27,8 @@
 // make parent node_modules available to sync'd manifest
 module.paths = module.paths.concat(module.parent.paths);
 
-var Q = require('q'),
+var console = require('better-console'),
+    Q = require('q'),
     path = require('path'),
     fs = require('fs'),
     u = require('util'),
@@ -60,6 +61,16 @@ p2
   if (changed) {
     console.warn('reboot needed');
     process.exit(0);
+  }
+})
+
+// Disable KSM
+.file('/etc/default/qemu-kvm', {
+  ensure: 'file',
+  content: {template: path.join(__dirname, 'files', 'compute', 'qemu-kvm.template')}
+}, function (changed) {
+  if (changed) {
+    console.warn('KSM now disabled in QEMU, you will want to reboot at some point to pick this up...');
   }
 })
 
