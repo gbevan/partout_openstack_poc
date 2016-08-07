@@ -4,11 +4,57 @@
 
 ![PoC Design](PoC_Diagram.jpg)
 
+(these notes are pretty rough - this is a work in progress...)
+
 ## Kit
 
 * 2 x Dell PowerEdge Blades
 
-## Brackets Syntax highlighting
+## Prereqs
+
+* A deployed [Partout](https://github.com/partoutx/partout) master with this git project cloned as a site manifest, e.g.:
+
+```
+    cd /opt/partout/etc/manifest
+    git clone git@github.com:gbevan/partout_openstack_poc.git openstack
+```
+
+## Setup
+
+* The two blades have Ubuntu Server 14.04 LTS installed
+* As the controller node is a uvt-kvm virtual machine running on manager1, grub needed tweaking with:
+
+    GRUB_CMDLINE_LINUX_DEFAULT="iommu=memaper=3"
+
+* Mount the partout_agent share from the partout master (or download it):
+
+```
+    your_master_node:/opt/partout/agent /opt/partout/agent nfs _netdev,ro,nolock,intr,bg 0 0
+```
+
+* Review the site.p2 for your site setup - it makes some hardcoded assumptions on node naming and their roles.
+* Run partout-agent on the manager1 node:
+
+```
+    cd /opt/partout/agent
+    bin/partout-agent --once --env openstack
+```
+
+* This will start the controller1 uvt-kvm virtual guest and start partout-agent to configure it.  Monitor progress in controller1 by tailing file ```/var/log/cloud-init-output.log```.
+* The agent's SSL Certificate Signing Request will need to be signed on the master using:
+
+```
+    cd /opt/partout
+    bin/partout csr list
+    bin/partout csr sign uuid-of-agent
+```
+
+* Repeat mounting the partout agent share and running ```partout-agent --once --env openstack``` on the compute1 node.
+* Once complete login to ```http://controller1/horizon```.
+
+## Misc Notes
+
+### Brackets Syntax highlighting
 
 ```js
 {
