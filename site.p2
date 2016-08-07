@@ -80,9 +80,9 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-.uvt_kvm('controller1', {
-  ensure: 'absent'
-})
+//.uvt_kvm('controller1', {
+//  ensure: 'absent'
+//})
 //.uvt_kvm('network1', {
 //  ensure: 'absent'
 //})
@@ -95,7 +95,7 @@ p2
  * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
  */
 .uvt_kvm('controller1', {
-  //password: '******',
+  //password: 'utest1',
   release: 'trusty',
   bridge: 'br0',
   ipaddr: controller_ip,
@@ -104,7 +104,9 @@ p2
   sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
   memory: 4096,  // MBs
   disk: 8,      // GBs
-  cpu: 2        // num cpus
+  cpu: 2,        // num cpus
+  user_data_template: path.join(__dirname, 'files', 'controller', 'cloud_user_data.template.yaml'),
+  dns_nameservers: ['194.168.4.100', '194.168.8.100']
 })
 
 //.uvt_kvm('network1', {
@@ -186,10 +188,24 @@ p2
 })
 .command('echo "1" > /proc/sys/net/ipv4/ip_forward')
 
+//.package('linux-image-generic-lts-wily')
+
+//.file('/etc/cloud/cloud.cfg.d/99_uvt.cfg', {
+//  ensure: 'file',
+//  content: 'datasource:\n  NoCloud:\ndatasource_list: [ NoCloud ]'
+//})
+
+.file('/etc/network/interfaces.d/eth0.cfg', {
+  ensure: 'absent'
+})
+
+
 // controller class
 .node('compute1')
 .classify('openstack_compute')
-
+.file('/etc/network/interfaces.d/eth0.cfg', {
+  ensure: 'absent'
+})
 
 ////////////////////////////////////////////////////////////////////////////
 // Process classified roles

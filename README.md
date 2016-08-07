@@ -1,4 +1,8 @@
-# Create a Dev OpenStack Cloud using Partout
+# Create a Dev OpenStack Private Cloud using the Partout DevOps Tool
+
+(See [Partout on GitHub](https://github.com/partoutx/partout))
+
+![PoC Design](PoC_Diagram.jpg)
 
 ## Kit
 

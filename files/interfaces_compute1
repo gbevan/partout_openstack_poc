@@ -21,8 +21,14 @@ iface br0 inet static
   gateway 192.168.0.1
   dns-nameservers 194.168.4.100
   dns-nameservers 194.168.8.100
-  up ethtool -s eth0 wol g
   bridge_ports eth0
+  up ethtool -s eth0 wol g && \
+    echo "1" > /proc/sys/net/ipv4/ip_forward
+
+    #ip link add veth0 type veth peer name veth1 && \
+    #brctl addif br0 veth0 && \
+    #ip link set dev veth0 up && \
+    #ip link set dev veth1 up && \
 
 auto eth1
 iface eth1 inet static
