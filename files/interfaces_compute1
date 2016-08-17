@@ -32,5 +32,5 @@ iface br0 inet static
 
 auto eth1
 iface eth1 inet static
-  address 172.18.0.2
+  address 172.18.0.3
   netmask 255.255.255.0

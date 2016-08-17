@@ -35,9 +35,31 @@ var console = require('better-console'),
     heredoc = require('heredoc');
 
 var controller_ip = '192.168.0.90',
-    network_ip = '192.168.0.91',
+    //network_ip = '192.168.0.91',
     cinder_ip = '192.168.0.92',
     compute_ip = '192.168.0.81';
+
+// TODO: Move to a vault
+var cred = {
+  mysql_pass: 'mypass1',
+  rabbit_pass: 'rbpass1',
+  keystone_pass: 'keypass1',
+  glance_pass: 'glancepass1',
+  admin_user_pass: 'adminpass1',
+  demo_user_pass: 'demopass1',
+  glance_user_pass: 'glancepass1',
+
+  nova_db_pass: 'novadbpass1',
+  nova_user_pass: 'novapass1',
+
+  metadata_secret: 'META_SECRET',
+
+  neutron_db_pass: 'neutrondbpass1',
+  neutron_user_pass: 'neutronpass1',
+
+  cinder_db_pass: 'cinderdbpass1',
+  cinder_user_pass: 'cinderpass1'
+};
 
 p2
 
@@ -80,15 +102,20 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-//.uvt_kvm('controller1', {
-//  ensure: 'absent'
-//})
-//.uvt_kvm('network1', {
-//  ensure: 'absent'
-//})
-//.uvt_kvm('cinder1', {
-//  ensure: 'absent'
-//})
+
+.uvt_kvm('controller1', {
+  ensure: 'absent'
+})
+
+.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
+  ensure: 'absent',
+  attachedTo: 'cinder1',
+  target: 'vdc',
+  persistent: true
+})
+.uvt_kvm('cinder1', {
+  ensure: 'absent'
+})
 
 
 /*
@@ -102,38 +129,42 @@ p2
   netmask: '255.255.255.0',
   gateway: '192.168.0.1',
   sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
-  memory: 4096,  // MBs
+  memory: 8192,  // MBs
   disk: 8,      // GBs
   cpu: 2,        // num cpus
   user_data_template: path.join(__dirname, 'files', 'controller', 'cloud_user_data.template.yaml'),
   dns_nameservers: ['194.168.4.100', '194.168.8.100']
 })
+// TODO: Add swap to VMs
 
-//.uvt_kvm('network1', {
-//  //password: '******',
-//  release: 'trusty',
-//  bridge: 'br0',
-//  ipaddr: network_ip,
-//  netmask: '255.255.255.0',
-//  gateway: '192.168.0.1',
-//  sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
-//  memory: 1024,  // MBs
-//  disk: 8,      // GBs
-//  cpu: 1        // num cpus
-//})
-//
-//.uvt_kvm('cinder1', {
-//  //password: '******',
-//  release: 'trusty',
-//  bridge: 'br0',
-//  ipaddr: cinder_ip,
-//  netmask: '255.255.255.0',
-//  gateway: '192.168.0.1',
-//  sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
-//  memory: 1024,  // MBs
-//  disk: 8,      // GBs
-//  cpu: 1        // num cpus
-//})
+.uvt_kvm('cinder1', {
+  //password: '******',
+  release: 'trusty',
+  bridge: 'br0',
+  ipaddr: cinder_ip,
+  netmask: '255.255.255.0',
+  gateway: '192.168.0.1',
+  sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
+  memory: 1024,  // MBs
+  disk: 8,      // GBs
+  cpu: 1,       // num cpus
+  //meta_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_meta_data.template.yaml'),
+  user_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_user_data.template.yaml'),
+  dns_nameservers: ['194.168.4.100', '194.168.8.100']
+})
+
+.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
+  ensure: 'present',
+  sizeGbs: 100,
+  attachedTo: 'cinder1',
+  target: 'vdc',
+  persistent: true
+})
+
+// add iscsi LAN 172.18.0.2 to cinder
+.virsh_iface('br1', {
+  attachedTo: 'cinder1'
+})
 
 // Mount partout agent nfs share on management vms
 
@@ -181,6 +212,7 @@ p2
 // controller class
 .node('controller1')
 .classify('openstack_controller')
+
 .file('/etc/rc.local', {
   ensure: 'file',
   content: {template: path.join(__dirname, 'files', 'controller', 'rc.local_template.sh')},
@@ -188,24 +220,45 @@ p2
 })
 .command('echo "1" > /proc/sys/net/ipv4/ip_forward')
 
-//.package('linux-image-generic-lts-wily')
-
-//.file('/etc/cloud/cloud.cfg.d/99_uvt.cfg', {
-//  ensure: 'file',
-//  content: 'datasource:\n  NoCloud:\ndatasource_list: [ NoCloud ]'
-//})
-
 .file('/etc/network/interfaces.d/eth0.cfg', {
   ensure: 'absent'
 })
 
 
-// controller class
+////////////////////////////////////////////////////////////////////////////
+// Cinder
+.node('cinder1')
+.classify('openstack_cinder')
+
+// ensure cinder-volumes group is setup
+.pv('/dev/vdc')
+.vg('cinder-volumes', {
+  pv: '/dev/vdc'
+})
+
+.file('/etc/network/interfaces', {
+  ensure: 'file',
+  content: {template: path.join(__dirname, 'files', 'interfaces_cinder1')}
+})
+
+.on('file:/etc/network/interfaces:changed', function () {
+  p2
+  .command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
+  .reboot('network interfaces', {
+    first_boot: true  // rerun cloud-init runcmd first boot scripts
+  })
+  ;
+})
+
+
+////////////////////////////////////////////////////////////////////////////
+// compute class
 .node('compute1')
 .classify('openstack_compute')
 .file('/etc/network/interfaces.d/eth0.cfg', {
   ensure: 'absent'
 })
+
 
 ////////////////////////////////////////////////////////////////////////////
 // Process classified roles
@@ -220,33 +273,44 @@ p2
 
 .openstack_controller('controller', {
   ip: controller_ip,
-  mysql_pass: 'mypass1',
-  rabbit_pass: 'rbpass1',
-  keystone_pass: 'keypass1',
-  glance_pass: 'glancepass1',
-  admin_user_pass: 'adminpass1',
-  demo_user_pass: 'demopass1',
-  glance_user_pass: 'glancepass1',
+  mysql_pass: cred.mysql_pass,
+  rabbit_pass: cred.rabbit_pass,
+  keystone_pass: cred.keystone_pass,
+  glance_pass: cred.glance_pass,
+  admin_user_pass: cred.admin_user_pass,
+  demo_user_pass: cred.demo_user_pass,
+  glance_user_pass: cred.glance_user_pass,
 
-  nova_db_pass: 'novadbpass1',
-  nova_user_pass: 'novapass1',
+  nova_db_pass: cred.nova_db_pass,
+  nova_user_pass: cred.nova_user_pass,
 
-  metadata_secret: 'META_SECRET',
+  metadata_secret: cred.metadata_secret,
 
-  neutron_db_pass: 'neutrondbpass1',
-  neutron_user_pass: 'neutronpass1'
+  neutron_db_pass: cred.neutron_db_pass,
+  neutron_user_pass: cred.neutron_user_pass,
+
+  cinder_db_pass: cred.cinder_db_pass,
+  cinder_user_pass: cred.cinder_user_pass
 })
 
 .openstack_compute('compute', {
   ip: compute_ip,
   controller_ip: controller_ip,
   rabbit_host: 'controller1',
-  rabbit_pass: 'rbpass1',
-  nova_user_pass: 'novapass1',
-  neutron_user_pass: 'neutronpass1'
+  rabbit_pass: cred.rabbit_pass,
+  nova_user_pass: cred.nova_user_pass,
+  neutron_user_pass: cred.neutron_user_pass,
 })
 
-//.openstack_cinder()
+.openstack_cinder('cinder', {
+  lvm_filter_list: [ 'a/vdc/' ],
+  cinder_db_pass: cred.cinder_db_pass,
+  cinder_user_pass: cred.cinder_user_pass,
+  rabbit_host: 'controller1',
+  rabbit_pass: cred.rabbit_pass,
+  glance_host: 'controller1',
+  controller_host: 'controller1'
+})
 
 //.openstack_network()
 

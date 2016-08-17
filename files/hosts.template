@@ -17,5 +17,5 @@ ff02::3  ip6-allhosts
 
 # Partout provisioned Nodes
 192.168.0.90  controller1
-192.168.0.91  network1
+#192.168.0.91  network1
 192.168.0.92  cinder1

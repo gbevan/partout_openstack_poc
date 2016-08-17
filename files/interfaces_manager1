@@ -25,7 +25,14 @@ iface br0 inet static
   up ethtool -s eth0 wol g
   bridge_ports eth0
 
-auto eth1
-iface eth1 inet static
+#auto eth1
+#iface eth1 inet static
+#  address 172.18.0.2
+#  netmask 255.255.255.0
+
+# iscsi LAN
+auto br1
+iface br1 inet static
   address 172.18.0.1
   netmask 255.255.255.0
+  bridge_ports eth1
