@@ -20,7 +20,6 @@
 #
 #echo "1" > /proc/sys/net/ipv4/ip_forward
 
-#sleep 30
-#service neutron-linuxbridge-agent restart
+(sleep 60;service neutron-linuxbridge-agent restart) &
 
 exit 0

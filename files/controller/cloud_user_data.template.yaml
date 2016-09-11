@@ -45,7 +45,7 @@ runcmd: # First boot
   - apt-get install -y nodejs
 
   # run once partout agent to build openstack
-  - cd /opt/partout/agent && bin/partout-agent -y --env=openstack --once
+  - cd /opt/partout/agent && bin/partout-agent -y --once
 
 bootcmd:  # Every boot
   - echo "******************************************************* BOOTCMD"

@@ -102,20 +102,26 @@ p2
   onlyif: 'test ! -f /root/.ssh/id_rsa'
 })
 
-
-.uvt_kvm('controller1', {
-  ensure: 'absent'
+.package('sysstat')
+.str_replace_infile('/etc/default/sysstat', {
+  regex: /^\s*ENABLED\s*=\s*"false"\s*$/mg,
+  with: 'ENABLED="true"'
 })
 
-.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
-  ensure: 'absent',
-  attachedTo: 'cinder1',
-  target: 'vdc',
-  persistent: true
-})
-.uvt_kvm('cinder1', {
-  ensure: 'absent'
-})
+
+//.uvt_kvm('controller1', {
+//  ensure: 'absent'
+//})
+//
+//.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
+//  ensure: 'absent',
+//  attachedTo: 'cinder1',
+//  target: 'vdc',
+//  persistent: true
+//})
+//.uvt_kvm('cinder1', {
+//  ensure: 'absent'
+//})
 
 
 /*
@@ -190,9 +196,9 @@ p2
 })
 
 // create veth? pair???
-.command('ip link add veth0 type veth peer name veth1; brctl addif br0 veth0; ip link set dev veth0 up; ip link set dev veth1 up', {
-  onlyif: '!(ip link | grep veth0)'
-})
+//.command('ip link add veth0 type veth peer name veth1; brctl addif br0 veth0; ip link set dev veth0 up; ip link set dev veth1 up', {
+//  onlyif: '!(ip link | grep veth0)'
+//})
 
 
 

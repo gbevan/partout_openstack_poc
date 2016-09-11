@@ -37,7 +37,7 @@
 
 ```
     cd /opt/partout/agent
-    bin/partout-agent --once --env openstack
+    bin/partout-agent --once -y
 ```
 
 * This will start the controller1 uvt-kvm virtual guest and start partout-agent to configure it.  Monitor progress in controller1 by tailing file ```/var/log/cloud-init-output.log```.
@@ -49,8 +49,15 @@
     bin/partout csr sign uuid-of-agent
 ```
 
+You need to set this agent to be in the openstack environment, on the master:
+```
+    bin/partout setenv uuid-of-agent openstack
+```
+
 * Repeat mounting the partout agent share and running ```partout-agent --once --env openstack``` on the compute1 node.
 * Once complete login to ```http://controller1/horizon```.
+
+---
 
 ## Misc Notes
 
