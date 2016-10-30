@@ -19,6 +19,8 @@
     git clone git@github.com:gbevan/partout_openstack_poc.git openstack
 ```
 
+in the openstack environment folder create file files/ssh_pub_key.rsa.  Copy in your ssh public key to allow logins to the target nodes.
+
 ## Setup
 
 * The two blades have Ubuntu Server 14.04 LTS installed

@@ -5,15 +5,6 @@
 auto lo
 iface lo inet loopback
 
-# The primary network interface
-#auto eth0
-#iface eth0 inet static
-#  address 192.168.0.81
-#  netmask 255.255.255.0
-#  gateway 192.168.0.1
-#  dns-nameservers 194.168.4.100 194.168.8.100
-#  up ethtool -s eth0 wol g
-
 auto br0
 iface br0 inet static
   address 192.168.0.81
@@ -21,8 +12,8 @@ iface br0 inet static
   gateway 192.168.0.1
   dns-nameservers 194.168.4.100
   dns-nameservers 194.168.8.100
-  bridge_ports eth0
-  up ethtool -s eth0 wol g && \
+  bridge_ports enp0s9
+  up ethtool -s enp0s9 wol g && \
     echo "1" > /proc/sys/net/ipv4/ip_forward
 
     #ip link add veth0 type veth peer name veth1 && \
@@ -30,7 +21,7 @@ iface br0 inet static
     #ip link set dev veth0 up && \
     #ip link set dev veth1 up && \
 
-auto eth1
-iface eth1 inet static
+auto enp0s8
+iface enp0s8 inet static
   address 172.18.0.3
   netmask 255.255.255.0

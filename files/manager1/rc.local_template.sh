@@ -16,15 +16,4 @@ mount -a                              # FIRSTBOOT
 cd /opt/partout/agent || exit 1       # FIRSTBOOT
 bin/partout-agent --once              # FIRSTBOOT
 
-# add veth pair and attach to management bridge for a provider network
-#ip link add veth0 type veth peer name veth1 && \
-#brctl addif br0 veth0
-#
-#ip link set dev veth0 up
-#ip link set dev veth1 up
-#
-#echo "1" > /proc/sys/net/ipv4/ip_forward
-
-(sleep 60;service neutron-linuxbridge-agent restart) &
-
 exit 0

@@ -1,14 +1,12 @@
 instance-id: {{ opts.parms.instance_uuid }}
 
 network-interfaces: |
+  #auto lo
+  #iface lo inet loopback
+
   auto ens3
   iface ens3 inet static
     address {{ opts.parms.ipaddr }}
     netmask {{ opts.parms.netmask }}
     gateway {{ opts.parms.gateway }}
     dns-nameservers {{ opts.parms.dns_nameservers }}
-
-  auto ens8
-  iface ens8 inet static
-    address 172.18.0.2
-    netmask 255.255.255.0
