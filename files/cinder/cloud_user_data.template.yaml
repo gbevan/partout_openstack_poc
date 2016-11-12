@@ -19,7 +19,7 @@ runcmd: # First boot
 
   # mount partout agent
   - mkdir -p /opt/partout/agent
-  - echo "192.168.0.64:/home/bev/Documents/Brackets/partout/agent  /opt/partout/agent nfs defaults,_netdev,ro,nolock,intr,bg 0 0" >> /etc/fstab
+  - grep "partout/agent" /etc/fstab || echo "192.168.0.64:/home/bev/Documents/Brackets/partout/agent  /opt/partout/agent nfs defaults,_netdev,ro,nolock,intr,bg 0 0" >> /etc/fstab
   - mount -a
 
   # install nodejs

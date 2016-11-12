@@ -5,7 +5,7 @@ iface ens3 inet static
   gateway 192.168.0.1
   dns-nameservers 194.168.4.100 194.168.8.100
 
-#auto eth1
-#iface eth1 inet static
-#  address 172.18.0.2
-#  netmask 255.255.255.0
+auto ens8
+iface ens8 inet static
+  address 172.18.0.2
+  netmask 255.255.255.0

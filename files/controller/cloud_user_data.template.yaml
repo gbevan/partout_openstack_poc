@@ -42,11 +42,11 @@ runcmd: # First boot
       gateway {{ opts.parms.gateway }}
       dns-nameservers {{ opts.parms.dns_nameservers }}
       bridge_ports {{ opts.parms.guest_nic }}
-      up (sleep 10; ip link add veth0 type veth peer name veth1 && \\
-        brctl addif br0 veth0 && \\
-        ip link set dev veth0 up && \\
-        ip link set dev veth1 up && \\
-        echo 1 > /proc/sys/net/ipv4/ip_forward)
+      up ip link add veth0 type veth peer name veth1; \\
+        brctl addif br0 veth0; \\
+        ip link set dev veth0 up; \\
+        ip link set dev veth1 up; \\
+        echo 1 > /proc/sys/net/ipv4/ip_forward
     EOF
   - cat /etc/network/interfaces
   - /sbin/ifup br0
@@ -87,10 +87,10 @@ bootcmd:  # Every boot
       gateway {{ opts.parms.gateway }}
       dns-nameservers {{ opts.parms.dns_nameservers }}
       bridge_ports {{ opts.parms.guest_nic }}
-      up ip link add veth0 type veth peer name veth1 && \\
-        brctl addif br0 veth0 && \\
-        ip link set dev veth0 up && \\
-        ip link set dev veth1 up && \\
+      up ip link add veth0 type veth peer name veth1; \\
+        brctl addif br0 veth0; \\
+        ip link set dev veth0 up; \\
+        ip link set dev veth1 up; \\
         echo 1 > /proc/sys/net/ipv4/ip_forward
     EOF
     cat /etc/network/interfaces

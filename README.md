@@ -59,6 +59,27 @@ You need to set this agent to be in the openstack environment, on the master:
 * Repeat mounting the partout agent share and running ```partout-agent --once --env openstack``` on the compute1 node.
 * Once complete login to ```http://controller1/horizon```.
 
+## Booting
+
+Ensure controller is up and neutron services are active prior to booting the compute node:
+```bash
+root@controller1:~# neutron agent-list
++--------------------------------------+--------------------+-------------+-------------------+-------+----------------+---------------------------+
+| id                                   | agent_type         | host        | availability_zone | alive | admin_state_up | binary                    |
++--------------------------------------+--------------------+-------------+-------------------+-------+----------------+---------------------------+
+| 44253eb1-7899-4c71-96c2-ae3df4071a53 | Metadata agent     | controller1 |                   | :-)   | True           | neutron-metadata-agent    |
+| 4acd5ecb-695e-4dd7-b190-ff452a56a251 | Linux bridge agent | compute1    |                   | :-)   | True           | neutron-linuxbridge-agent |
+| a5902426-7c25-4feb-b7d7-9117a0cb4ec2 | DHCP agent         | controller1 | nova              | :-)   | True           | neutron-dhcp-agent        |
+| de75211d-78e6-4599-bddf-7103c863f4cb | Linux bridge agent | controller1 |                   | :-)   | True           | neutron-linuxbridge-agent |
+| f3a06c37-0d9c-4a38-b2a7-ad7ead48f9c9 | L3 agent           | controller1 | nova              | :-)   | True           | neutron-l3-agent          |
++--------------------------------------+--------------------+-------------+-------------------+-------+----------------+---------------------------+
+```
+
+If compute guests can't get their dhcp addresses (e.g. due to a timing issue with services starting up), try restarting neutron-linuxbridge-cleanup on the compute node:
+```bash
+root@compute1:~# service neutron-linuxbridge-cleanup restart
+```
+
 ---
 
 ## Misc Notes

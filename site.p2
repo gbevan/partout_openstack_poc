@@ -194,15 +194,15 @@ p2
 //  ensure: 'absent'
 //})
 
-.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
-  ensure: 'absent',
-  attachedTo: 'cinder1',
-  target: 'vdc',
-  persistent: true
-})
-.uvt_kvm('cinder1', {
-  ensure: 'absent'
-})
+//.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
+//  ensure: 'absent',
+//  attachedTo: 'cinder1',
+//  target: 'vdc',
+//  persistent: true
+//})
+//.uvt_kvm('cinder1', {
+//  ensure: 'absent'
+//})
 
 
 /*
@@ -220,8 +220,8 @@ p2
   gateway: '192.168.0.1',
   //sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
   sshpubkey_files: ['/root/.ssh/id_rsa.pub', path.join(__dirname, 'files', 'ssh_pub_key.rsa')],
-  memory: 8192,  // MBs
-  disk: 8,      // GBs
+  memory: 16384,  // MBs
+  disk: 16,      // GBs
   cpu: 2,        // num cpus
   user_data_template: path.join(__dirname, 'files', 'controller', 'cloud_user_data.template.yaml'),
   meta_data_template: path.join(__dirname, 'files', 'controller', 'cloud_meta_data.template.yaml'),
@@ -242,9 +242,9 @@ p2
   gateway: '192.168.0.1',
   //sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
   sshpubkey_files: ['/root/.ssh/id_rsa.pub', path.join(__dirname, 'files', 'ssh_pub_key.rsa')],
-  memory: 1024,  // MBs
+  memory: 2048,  // MBs
   disk: 8,      // GBs
-  cpu: 1,       // num cpus
+  cpu: 2,       // num cpus
   meta_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_meta_data.template.yaml'),
   user_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_user_data.template.yaml'),
   dns_nameservers: ['194.168.4.100', '194.168.8.100']
@@ -409,10 +409,11 @@ p2
 
 .on('file:/etc/network/interfaces:changed', function () {
   p2
-  .command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
-  .reboot('network interfaces', {
-    first_boot: true  // rerun cloud-init runcmd first boot scripts
-  })
+//  .command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
+//  .reboot('network interfaces', {
+//    first_boot: true  // rerun cloud-init runcmd first boot scripts
+//  })
+  .command('service networking restart')
   ;
 })
 
@@ -517,7 +518,8 @@ p2
 //})
 
 
-/////////////////
+// >>>>>>>>>>>>>>>>>>
+// >>> as admin
 .source_env('/root/admin-openrc')
 
 // neutron net-create ext-net --router:external --provider:physical_network provider --provider:network_type flat --shared
@@ -539,6 +541,20 @@ p2
   ensure: 'present'
 })
 
+// Create default flavors
+.openstack_flavor('t1.tiny', {
+  vcpus: 1,
+  ram: 256,
+  disk: 1
+})
+
+.openstack_flavor('t1.small', {
+  vcpus: 2,
+  ram: 512,
+  disk: 5
+})
+
+// >>>>>>>>>>>>>>>>>>
 // >>> as demo
 .source_env('/root/demo-openrc')
 
