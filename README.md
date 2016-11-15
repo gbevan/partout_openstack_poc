@@ -1,6 +1,6 @@
 # Create a Dev OpenStack Private Cloud using the Partout DevOps Tool
 
-(See [Partout on GitHub](https://github.com/partoutx/partout))
+(See [Partout on GitHub](https://github.com/partoutx/partout) and sister project [gbevan/partout_baremetal_poc](https://github.com/gbevan/partout_baremetal_poc))
 
 ![PoC Design](PoC_Diagram.jpg)
 
