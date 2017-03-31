@@ -1,11 +1,21 @@
-auto ens3
-iface ens3 inet static
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+auto enp0s9
+iface enp0s9 inet static
   address 192.168.0.92
   netmask 255.255.255.0
   gateway 192.168.0.1
-  dns-nameservers 194.168.4.100 194.168.8.100
+  dns-nameservers 194.168.4.100
+  dns-nameservers 194.168.8.100
+  up ethtool -s enp0s9 wol g; \
+    echo "1" > /proc/sys/net/ipv4/ip_forward
 
-auto ens8
-iface ens8 inet static
+auto enp0s8
+iface enp0s8 inet static
   address 172.18.0.2
   netmask 255.255.255.0

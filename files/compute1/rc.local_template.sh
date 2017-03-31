@@ -13,17 +13,12 @@
 
 echo "*** rc.local starting *******************************************"
 
-mount -a || /bin/true                 # FIRSTBOOT
-
-cd /opt/partout/agent || exit 1       # FIRSTBOOT
-bin/partout-agent --once              # FIRSTBOOT
-
-(
-sleep 60
-echo "!!! neutron linuxbridge cleanup starting !!!!!!!!!!!!"
-service neutron-linuxbridge-cleanup restart
-echo "!!! neutron linuxbridge cleanup finished !!!!!!!!!!!!"
-) &
+#(
+#sleep 60
+#echo "!!! neutron linuxbridge cleanup starting !!!!!!!!!!!!"
+#service neutron-linuxbridge-cleanup restart
+#echo "!!! neutron linuxbridge cleanup finished !!!!!!!!!!!!"
+#) &
 
 echo "*** rc.local finished *******************************************"
 

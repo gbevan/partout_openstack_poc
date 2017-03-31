@@ -62,12 +62,19 @@ var cred = {
 
 p2
 
-//.include('roles/openstack')
+////////////////////////////////////////////////////////////////////////////
+// classify all openstack nodes
+.node(function (f) {
+  if (f.os_hostname.match(/^(controller1|(cinder|compute).*)$/)) {
+    return true;
+  }
+  return false;
+})
+.classify('openstack_node')
 
 
 ////////////////////////////////////////////////////////////////////////////
-// manager 1
-.node('manager1')
+// all baremetal openstack nodes
 
 .file('/root/.ssh', {
   ensure: 'directory',
@@ -108,7 +115,7 @@ p2
 //.command('echo "' + __dirname + '"')
 .file('/etc/network/interfaces', {
   ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'interfaces_manager1')}
+  content: {template: path.join(__dirname, 'files', 'interfaces_' + p2.facts.os_hostname)}
 //})
 }/*, function (changed) {
   if (changed) {
@@ -127,20 +134,20 @@ p2
 // if /.partout_provisioned.keep isnt present
 .file('/etc/rc.local', {
   ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'manager1', 'rc.local_template.sh')},
+  content: {template: path.join(__dirname, 'files', p2.facts.os_hostname, 'rc.local_template.sh')},
   mode: '0755',
-  onlyif: function (f) {
-    return pfs.pExists('/.partout_provisioned.keep')
-    .then(function (exists) {
-      return Q(!exists);  // only apply policy if file does not exist
-    });
-  }
+//  onlyif: function (f) {
+//    return pfs.pExists('/.partout_provisioned.keep')
+//    .then(function (exists) {
+//      return Q(!exists);  // only apply policy if file does not exist
+//    });
+//  }
 })
 .on('file:/etc/rc.local:changed', function () {
   p2
 //  .service('rc-local.service', {enabled: 'true'})
   .file('/.partout_provisioned.keep', {ensure: 'file'})
-  .reboot('Partout provisioning')
+//  .reboot('Partout provisioning')
   ;
 })
 
@@ -163,7 +170,7 @@ p2
 // Disable KSM
 .file('/etc/default/qemu-kvm', {
   ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'manager1', 'qemu-kvm.template')}
+  content: {template: path.join(__dirname, 'files', p2.facts.os_hostname, 'qemu-kvm.template')}
 }, function (changed) {
   if (changed) {
     console.warn('KSM now disabled in QEMU, you will want to reboot at some point to pick this up...');
@@ -171,13 +178,13 @@ p2
 })
 
 // Continuing after above first reboot - remove FIRSTBOOT entries from rc.local
-.str_replace_infile('/etc/rc.local', {
-  regex: /^.*FIRSTBOOT.*$/mg,
-  with: ''
-})
+//.str_replace_infile('/etc/rc.local', {
+//  regex: /^.*FIRSTBOOT.*$/mg,
+//  with: ''
+//})
 
-.uvt_cloud_image('trusty', {arch:'amd64', ensure: 'present'})
-.uvt_cloud_image('xenial', {arch:'amd64', ensure: 'present'})
+//.uvt_cloud_image('trusty', {arch:'amd64', ensure: 'present'})
+//.uvt_cloud_image('xenial', {arch:'amd64', ensure: 'present'})
 
 .command('ssh-keygen -q -t rsa -N "" -f /root/.ssh/id_rsa', {
   onlyif: 'test ! -f /root/.ssh/id_rsa'
@@ -190,172 +197,161 @@ p2
 })
 
 
-//.uvt_kvm('controller1', {
-//  ensure: 'absent'
-//})
+/*
+ * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
+ */
 
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
+//.uvt_kvm('controller1', {
+//  //password: 'utest1',
+//  password: '$6$rounds=4096$ux8WWas3IK1b$5lKXiePn.LZeFsjvH/Q2VeVSnH6EZTaZL6t9T32BRrbIb5JenC7AAdN.yeHbmjTjTQfdTIAFcuImsfCUcpLX41',
+//  //release: 'trusty',
+//  release: 'xenial',
+//  bridge: 'br0',
+//  guest_nic: 'ens3',    // eth0
+//  ipaddr: controller_ip,
+//  netmask: '255.255.255.0',
+//  gateway: '192.168.0.1',
+//  //sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
+//  sshpubkey_files: ['/root/.ssh/id_rsa.pub', path.join(__dirname, 'files', 'ssh_pub_key.rsa')],
+//  memory: 16384,  // MBs
+//  disk: 16,      // GBs
+//  cpu: 2,        // num cpus
+//  user_data_template: path.join(__dirname, 'files', 'controller', 'cloud_user_data.template.yaml'),
+//  meta_data_template: path.join(__dirname, 'files', 'controller', 'cloud_meta_data.template.yaml'),
+//  dns_nameservers: ['194.168.4.100', '194.168.8.100']
+//})
+//// TODO: Add swap to VMs
+//
+//.uvt_kvm('cinder1', {
+//  //password: '******',
+//  //password: 'utest1',
+//  password: '$6$rounds=4096$ux8WWas3IK1b$5lKXiePn.LZeFsjvH/Q2VeVSnH6EZTaZL6t9T32BRrbIb5JenC7AAdN.yeHbmjTjTQfdTIAFcuImsfCUcpLX41',
+////  release: 'trusty',
+//  release: 'xenial',
+//  bridge: 'br0',
+//  //guest_nic: 'ens3',    // eth0
+//  ipaddr: cinder_ip,
+//  netmask: '255.255.255.0',
+//  gateway: '192.168.0.1',
+//  //sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
+//  sshpubkey_files: ['/root/.ssh/id_rsa.pub', path.join(__dirname, 'files', 'ssh_pub_key.rsa')],
+//  memory: 2048,  // MBs
+//  disk: 8,      // GBs
+//  cpu: 2,       // num cpus
+//  meta_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_meta_data.template.yaml'),
+//  user_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_user_data.template.yaml'),
+//  dns_nameservers: ['194.168.4.100', '194.168.8.100']
+//})
+//
 //.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
-//  ensure: 'absent',
+//  ensure: 'present',
+//  sizeGbs: 100,
 //  attachedTo: 'cinder1',
 //  target: 'vdc',
 //  persistent: true
 //})
-//.uvt_kvm('cinder1', {
-//  ensure: 'absent'
+//
+//// add iscsi LAN 172.18.0.2 to cinder
+//.virsh_iface('br1', {
+//  attachedTo: 'cinder1'
 //})
-
-
-/*
- * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
- */
-.uvt_kvm('controller1', {
-  //password: 'utest1',
-  password: '$6$rounds=4096$ux8WWas3IK1b$5lKXiePn.LZeFsjvH/Q2VeVSnH6EZTaZL6t9T32BRrbIb5JenC7AAdN.yeHbmjTjTQfdTIAFcuImsfCUcpLX41',
-  //release: 'trusty',
-  release: 'xenial',
-  bridge: 'br0',
-  guest_nic: 'ens3',    // eth0
-  ipaddr: controller_ip,
-  netmask: '255.255.255.0',
-  gateway: '192.168.0.1',
-  //sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
-  sshpubkey_files: ['/root/.ssh/id_rsa.pub', path.join(__dirname, 'files', 'ssh_pub_key.rsa')],
-  memory: 16384,  // MBs
-  disk: 16,      // GBs
-  cpu: 2,        // num cpus
-  user_data_template: path.join(__dirname, 'files', 'controller', 'cloud_user_data.template.yaml'),
-  meta_data_template: path.join(__dirname, 'files', 'controller', 'cloud_meta_data.template.yaml'),
-  dns_nameservers: ['194.168.4.100', '194.168.8.100']
-})
-// TODO: Add swap to VMs
-
-.uvt_kvm('cinder1', {
-  //password: '******',
-  //password: 'utest1',
-  password: '$6$rounds=4096$ux8WWas3IK1b$5lKXiePn.LZeFsjvH/Q2VeVSnH6EZTaZL6t9T32BRrbIb5JenC7AAdN.yeHbmjTjTQfdTIAFcuImsfCUcpLX41',
-//  release: 'trusty',
-  release: 'xenial',
-  bridge: 'br0',
-  //guest_nic: 'ens3',    // eth0
-  ipaddr: cinder_ip,
-  netmask: '255.255.255.0',
-  gateway: '192.168.0.1',
-  //sshpubkey_files: ['/home/bev/.ssh/authorized_keys', '/root/.ssh/id_rsa.pub'],
-  sshpubkey_files: ['/root/.ssh/id_rsa.pub', path.join(__dirname, 'files', 'ssh_pub_key.rsa')],
-  memory: 2048,  // MBs
-  disk: 8,      // GBs
-  cpu: 2,       // num cpus
-  meta_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_meta_data.template.yaml'),
-  user_data_template: path.join(__dirname, 'files', 'cinder', 'cloud_user_data.template.yaml'),
-  dns_nameservers: ['194.168.4.100', '194.168.8.100']
-})
-
-.virsh_disk('/var/lib/uvtool/libvirt/images/cinder1-volumes.qcow', {
-  ensure: 'present',
-  sizeGbs: 100,
-  attachedTo: 'cinder1',
-  target: 'vdc',
-  persistent: true
-})
-
-// add iscsi LAN 172.18.0.2 to cinder
-.virsh_iface('br1', {
-  attachedTo: 'cinder1'
-})
 
 // Mount partout agent nfs share on management vms
 
 
 ////////////////////////////////////////////////////////////////////////////
 // compute 1
-.node('compute1')
+//.node('compute1')
 
-.str_replace_infile('/etc/default/grub', {
-  regex: /splash quiet/,
-  with: 'iommu=memaper=3'
-})
-.on('str_replace_infile:/etc/default/grub:changed', function () {
-  p2
-  .command('update-grub')
-  ;
-})
-
-.file('/root/.ssh', {
-  ensure: 'directory',
-  owner: 'root',
-  group: 'root',
-  mode: '0700'
-})
-.file('/root/.ssh/authorized_keys', {
-  ensure: 'file',
-  content: {
-    file: path.join(__dirname, 'files', 'ssh_pub_key.rsa')
-  }
-})
-
-.package('ethtool')
-.package('bridge-utils')
-.package('openssh-server')
-
-.file('/etc/sudoers', {
-  ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'sudoers')}
-})
-
-.file('/etc/network/interfaces', {
-  ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'interfaces_compute1')}
-})
-
-.on('file:/etc/network/interfaces:changed', function () {
-  p2
-  //.command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
-  //.reboot('network interfaces'/*, {
-    //first_boot: true  // rerun cloud-init runcmd first boot scripts
-  //}*/)
-  .command('service networking restart')
-  ;
-})
-
-// set partout for firstboot exec in rc.local and reboot
-// if /.partout_provisioned.keep isnt present
-.file('/etc/rc.local', {
-  ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'compute', 'rc.local_template.sh')},
-  mode: '0755',
-  onlyif: function (f) {
-    return pfs.pExists('/.partout_provisioned.keep')
-    .then(function (exists) {
-      return Q(!exists);  // only apply policy if file does not exist
-    });
-  }
-})
-.on('file:/etc/rc.local:changed', function () {
-  p2
-//  .service('rc-local.service', {enabled: 'true'})
-  .file('/.partout_provisioned.keep', {ensure: 'file'})
-  .reboot('Partout provisioning')
-  ;
-})
-
-.file('/home/ubuntu/.ssh', {
-  ensure: 'directory',
-  owner: 'ubuntu',
-  group: 'ubuntu',
-  mode: '0700'
-})
-.file('/home/ubuntu/.ssh/authorized_keys', {
-  ensure: 'file',
-  content: {
-    file: path.join(__dirname, 'files', 'ssh_pub_key.rsa')
-  }
-})
+//.str_replace_infile('/etc/default/grub', {
+//  regex: /splash quiet/,
+//  with: 'iommu=memaper=3'
+//})
+//.on('str_replace_infile:/etc/default/grub:changed', function () {
+//  p2
+//  .command('update-grub')
+//  ;
+//})
+//
+//.file('/root/.ssh', {
+//  ensure: 'directory',
+//  owner: 'root',
+//  group: 'root',
+//  mode: '0700'
+//})
+//.file('/root/.ssh/authorized_keys', {
+//  ensure: 'file',
+//  content: {
+//    file: path.join(__dirname, 'files', 'ssh_pub_key.rsa')
+//  }
+//})
+//
+//.package('ethtool')
+//.package('bridge-utils')
+//.package('openssh-server')
+//
+//.file('/etc/sudoers', {
+//  ensure: 'file',
+//  content: {template: path.join(__dirname, 'files', 'sudoers')}
+//})
+//
+//.file('/etc/network/interfaces', {
+//  ensure: 'file',
+//  content: {template: path.join(__dirname, 'files', 'interfaces_compute1')}
+//})
+//
+//.on('file:/etc/network/interfaces:changed', function () {
+//  p2
+//  //.command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
+//  //.reboot('network interfaces'/*, {
+//    //first_boot: true  // rerun cloud-init runcmd first boot scripts
+//  //}*/)
+//  .command('service networking restart')
+//  ;
+//})
+//
+//// set partout for firstboot exec in rc.local and reboot
+//// if /.partout_provisioned.keep isnt present
+//.file('/etc/rc.local', {
+//  ensure: 'file',
+//  content: {template: path.join(__dirname, 'files', 'compute', 'rc.local_template.sh')},
+//  mode: '0755',
+//  onlyif: function (f) {
+//    return pfs.pExists('/.partout_provisioned.keep')
+//    .then(function (exists) {
+//      return Q(!exists);  // only apply policy if file does not exist
+//    });
+//  }
+//})
+//.on('file:/etc/rc.local:changed', function () {
+//  p2
+////  .service('rc-local.service', {enabled: 'true'})
+//  .file('/.partout_provisioned.keep', {ensure: 'file'})
+//  .reboot('Partout provisioning')
+//  ;
+//})
+//
+//.file('/home/ubuntu/.ssh', {
+//  ensure: 'directory',
+//  owner: 'ubuntu',
+//  group: 'ubuntu',
+//  mode: '0700'
+//})
+//.file('/home/ubuntu/.ssh/authorized_keys', {
+//  ensure: 'file',
+//  content: {
+//    file: path.join(__dirname, 'files', 'ssh_pub_key.rsa')
+//  }
+//})
 
 // Continuing after above first reboot - remove FIRSTBOOT entries from rc.local
-.str_replace_infile('/etc/rc.local', {
-  regex: /^.*FIRSTBOOT.*$/mg,
-  with: ''
-})
+//.str_replace_infile('/etc/rc.local', {
+//  regex: /^.*FIRSTBOOT.*$/mg,
+//  with: ''
+//})
 
 // create veth? pair???
 //.command('ip link add veth0 type veth peer name veth1; brctl addif br0 veth0; ip link set dev veth0 up; ip link set dev veth1 up', {
@@ -363,15 +359,6 @@ p2
 //})
 
 
-////////////////////////////////////////////////////////////////////////////
-// classify all openstack nodes
-.node(function (f) {
-  if (f.os_hostname.match(/^(controller|network|cinder|compute).*$/)) {
-    return true;
-  }
-  return false;
-})
-.classify('openstack_node')
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -379,12 +366,12 @@ p2
 .node('controller1')
 .classify('openstack_controller')
 
-.file('/etc/rc.local', {
-  ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'controller', 'rc.local_template.sh')},
-  mode: '0755'
-})
-.command('echo "1" > /proc/sys/net/ipv4/ip_forward')
+//.file('/etc/rc.local', {
+//  ensure: 'file',
+//  content: {template: path.join(__dirname, 'files', 'controller', 'rc.local_template.sh')},
+//  mode: '0755'
+//})
+//.command('echo "1" > /proc/sys/net/ipv4/ip_forward')
 
 .file('/etc/network/interfaces.d/eth0.cfg', {
   ensure: 'absent'
@@ -397,25 +384,27 @@ p2
 .classify('openstack_cinder')
 
 // ensure cinder-volumes group is setup
-.pv('/dev/vdc')
-.vg('cinder-volumes', {
-  pv: '/dev/vdc'
-})
+// now in baremetal kickstart
+//.command('dd if=/dev/zero of=/cinder-volumes.disk.img bs=1 count=1024 seek=100G && losetup -sf /cinder-volumes.disk.img')
+//.pv('/cinder-volumes.disk.img')
+//.vg('cinder-volumes', {
+//  pv: '/dev/vdc'
+//})
 
-.file('/etc/network/interfaces', {
-  ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'interfaces_cinder1')}
-})
-
-.on('file:/etc/network/interfaces:changed', function () {
-  p2
-//  .command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
-//  .reboot('network interfaces', {
-//    first_boot: true  // rerun cloud-init runcmd first boot scripts
-//  })
-  .command('service networking restart')
-  ;
-})
+//.file('/etc/network/interfaces', {
+//  ensure: 'file',
+//  content: {template: path.join(__dirname, 'files', 'interfaces_cinder1')}
+//})
+//
+//.on('file:/etc/network/interfaces:changed', function () {
+//  p2
+////  .command('chattr +i /etc/network/interfaces') // protect from cloud-init reboots
+////  .reboot('network interfaces', {
+////    first_boot: true  // rerun cloud-init runcmd first boot scripts
+////  })
+//  .command('service networking restart')
+//  ;
+//})
 
 
 ////////////////////////////////////////////////////////////////////////////

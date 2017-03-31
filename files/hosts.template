@@ -12,10 +12,7 @@ ff02::3  ip6-allhosts
 #127.0.1.1 {{ f.os_hostname }}  # breaks horizon talking to memcached
 
 # Dell blades - Openstack
-192.168.0.80  manager1
-192.168.0.81  compute1
-
 # Partout provisioned Nodes
 192.168.0.90  controller1
-#192.168.0.91  network1
 192.168.0.92  cinder1
+192.168.0.81  compute1

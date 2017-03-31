@@ -11,9 +11,6 @@
 #
 # By default this script does nothing.
 
-mount -a || /bin/true                 # FIRSTBOOT
 
-cd /opt/partout/agent || exit 1       # FIRSTBOOT
-bin/partout-agent --once              # FIRSTBOOT
 
 exit 0
