@@ -43,18 +43,9 @@ in the openstack environment folder create file files/ssh_pub_key.rsa.  Copy in 
 ```
 
 * This will start the controller1 uvt-kvm virtual guest and start partout-agent to configure it.  Monitor progress in controller1 by tailing file ```/var/log/cloud-init-output.log```.
-* The agent's SSL Certificate Signing Request will need to be signed on the master using:
+* The agent's SSL Certificate Signing Request will need to be signed on the master.
 
-```
-    cd /opt/partout
-    bin/partout csr list
-    bin/partout csr sign uuid-of-agent
-```
-
-You need to set this agent to be in the openstack environment, on the master:
-```
-    bin/partout setenv uuid-of-agent openstack
-```
+You need to set this agent to be in the openstack environment, on the master.
 
 * Repeat mounting the partout agent share and running ```partout-agent --once --env openstack``` on the compute1 node.
 * Once complete login to ```http://controller1/horizon```.
