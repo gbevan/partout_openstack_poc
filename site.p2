@@ -104,8 +104,8 @@ p2
  * Note: kernel option "iommu=memaper=3" needed on dell poweredge blades
  */
 .str_replace_infile('/etc/default/grub', {
-  regex: /splash quiet/,
-  with: 'iommu=memaper=3'
+  regex: /GRUB_CMDLINE_LINUX_DEFAULT=.*/g,
+  with: 'GRUB_CMDLINE_LINUX_DEFAULT="iommu=memaper=3 noapic acpi=off"'
 })
 .on('str_replace_infile:/etc/default/grub:changed', function () {
   p2
@@ -233,7 +233,11 @@ p2
   neutron_user_pass: cred.neutron_user_pass,
 
   cinder_db_pass: cred.cinder_db_pass,
-  cinder_user_pass: cred.cinder_user_pass
+  cinder_user_pass: cred.cinder_user_pass,
+
+  dns_resolvers: ['194.168.4.100', '194.168.8.100'],
+
+  ext_bridge_nic: 'enp2s0'
 })
 
 .openstack_compute('compute', {
@@ -243,6 +247,8 @@ p2
   rabbit_pass: cred.rabbit_pass,
   nova_user_pass: cred.nova_user_pass,
   neutron_user_pass: cred.neutron_user_pass,
+
+  ext_bridge_nic: 'enp2s0'
 })
 
 .openstack_cinder('cinder', {

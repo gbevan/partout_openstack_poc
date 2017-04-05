@@ -5,32 +5,40 @@
 auto lo
 iface lo inet loopback
 
-auto br0
-iface br0 inet static
-  address 192.168.0.90
-  netmask 255.255.255.0
-  gateway 192.168.0.1
-  dns-nameservers 194.168.4.100
-  dns-nameservers 194.168.8.100
-  bridge_ports enp0s9
-  up ethtool -s enp0s9 wol g; \
-    ip link add veth0 type veth peer name veth1; \
-    brctl addif br0 veth0; \
-    ip link set dev veth0 up; \
-    ip link set dev veth1 up; \
-    echo "1" > /proc/sys/net/ipv4/ip_forward
-
-#auto enp0s9
-#iface enp0s9 inet static
+#auto br0
+#iface br0 inet static
 #  address 192.168.0.90
 #  netmask 255.255.255.0
 #  gateway 192.168.0.1
 #  dns-nameservers 194.168.4.100
 #  dns-nameservers 194.168.8.100
+#  bridge_ports enp0s9
 #  up ethtool -s enp0s9 wol g; \
+#    ip link add veth0 type veth peer name veth1; \
+#    brctl addif br0 veth0; \
+#    ip link set dev veth0 up; \
+#    ip link set dev veth1 up; \
 #    echo "1" > /proc/sys/net/ipv4/ip_forward
+
+auto enp0s9
+iface enp0s9 inet static
+  address 192.168.0.90
+  netmask 255.255.255.0
+  gateway 192.168.0.1
+  dns-nameservers 194.168.4.100
+  dns-nameservers 194.168.8.100
+  up ethtool -s enp0s9 wol g; \
+    echo "1" > /proc/sys/net/ipv4/ip_forward
 
 auto enp0s8
 iface enp0s8 inet static
   address 172.18.0.1
   netmask 255.255.255.0
+
+# enp2s0 left unnumbered for provider network
+# added wol to prevent nic going to sleep bug
+auto enp2s0
+iface enp2s0 inet manual
+  up ethtool -s enp2s0 wol g; \
+    ip link set dev enp2s0 up
+  down ip link set dev enp2s0 down
