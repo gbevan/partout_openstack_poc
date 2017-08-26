@@ -95,7 +95,8 @@ p2
 
 .file('/etc/sudoers', {
   ensure: 'file',
-  content: {template: path.join(__dirname, 'files', 'sudoers')}
+  content: {template: path.join(__dirname, 'files', 'sudoers')},
+  watch: true
 })
 
 .classify('openstack_virt_host')
@@ -105,7 +106,8 @@ p2
  */
 .str_replace_infile('/etc/default/grub', {
   regex: /GRUB_CMDLINE_LINUX_DEFAULT=.*/g,
-  with: 'GRUB_CMDLINE_LINUX_DEFAULT="iommu=memaper=3 noapic acpi=off"'
+  with: 'GRUB_CMDLINE_LINUX_DEFAULT="iommu=memaper=3 noapic acpi=off"',
+  watch: true
 })
 .on('str_replace_infile:/etc/default/grub:changed', function () {
   p2
@@ -156,7 +158,8 @@ p2
 // Disable KSM
 .file('/etc/default/qemu-kvm', {
   ensure: 'file',
-  content: {template: path.join(__dirname, 'files', p2.facts.os_hostname, 'qemu-kvm.template')}
+  content: {template: path.join(__dirname, 'files', p2.facts.os_hostname, 'qemu-kvm.template')},
+  watch: true
 }, function (changed) {
   if (changed) {
     console.warn('KSM now disabled in QEMU, you will want to reboot at some point to pick this up...');
@@ -170,7 +173,8 @@ p2
 .package('sysstat')
 .str_replace_infile('/etc/default/sysstat', {
   regex: /^\s*ENABLED\s*=\s*"false"\s*$/mg,
-  with: 'ENABLED="true"'
+  with: 'ENABLED="true"',
+  watch: true
 })
 
 ////////////////////////////////////////////////////////////////////////////
