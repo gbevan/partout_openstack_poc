@@ -333,6 +333,18 @@ p2
   disk: 5
 })
 
+.openstack_flavor('t1.medium', {
+  vcpus: 2,
+  ram: 2048,
+  disk: 10
+})
+
+.openstack_flavor('t1.large', {
+  vcpus: 2,
+  ram: 4096,
+  disk: 10
+})
+
 // >>>>>>>>>>>>>>>>>>
 // >>> as demo
 .source_env('/root/demo-openrc')
