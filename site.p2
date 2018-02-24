@@ -54,6 +54,7 @@ var cred = {
   neutron_user_pass: 'neutronpass1',
   nova_db_pass: 'novadbpass1',
   nova_user_pass: 'novapass1',
+  placement_user_pass: 'placementpass1',
   mysql_pass: 'mypass1',
   rabbit_pass: 'rbpass1',
 
@@ -215,7 +216,9 @@ p2
 })
 
 .openstack_prep_node('prep', {
-  openstack_version: 'newton'
+//  openstack_version: 'newton'
+  openstack_version: 'pike',
+  controller_ip: controller_ip
 })
 
 .openstack_controller('controller', {
@@ -230,6 +233,8 @@ p2
 
   nova_db_pass: cred.nova_db_pass,
   nova_user_pass: cred.nova_user_pass,
+
+  placement_user_pass: cred.placement_user_pass,
 
   metadata_secret: cred.metadata_secret,
 
@@ -250,13 +255,17 @@ p2
   rabbit_host: 'controller1',
   rabbit_pass: cred.rabbit_pass,
   nova_user_pass: cred.nova_user_pass,
+
+  placement_user_pass: cred.placement_user_pass,
+
   neutron_user_pass: cred.neutron_user_pass,
 
   ext_bridge_nic: 'enp2s0'
 })
 
 .openstack_cinder('cinder', {
-  lvm_filter_list: [ 'a/vdc/' ],
+//  lvm_filter_list: [ 'a/vdc/' ],
+  lvm_filter_list: [ 'a/sda5/' ],
   cinder_db_pass: cred.cinder_db_pass,
   cinder_user_pass: cred.cinder_user_pass,
   rabbit_host: 'controller1',
@@ -277,6 +286,7 @@ p2
 // delete all networks etc for test
 //.source_env('/root/demo-openrc')
 // TODO: floatingip may need deleting
+
 //.neutron_router_interface('ext-router', {
 //  internal_subnet: 'demo-subnet',
 //  ensure: 'absent'
@@ -285,6 +295,7 @@ p2
 //  external_network: 'ext-net',
 //  ensure: 'absent'
 //})
+//// TODO: remove ports so router can be deleted
 //.neutron_router('ext-router', {
 //  ensure: 'absent'
 //})
