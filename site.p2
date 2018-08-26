@@ -244,7 +244,8 @@ p2
   cinder_db_pass: cred.cinder_db_pass,
   cinder_user_pass: cred.cinder_user_pass,
 
-  dns_resolvers: ['194.168.4.100', '194.168.8.100'],
+  // dns_resolvers: ['194.168.4.100', '194.168.8.100'],
+  dns_resolvers: ['8.8.8.8', '8.8.4.4'],
 
   ext_bridge_nic: 'enp2s0'
 })
